@@ -41,7 +41,7 @@ export class CapabilityDetector {
     return capabilities
   }
 
-  // 新增：快速连接测试+异步思考检测
+  // 快速连接测试+异步思考检测
   async detectCapabilitiesWithCallback(
     provider: ProviderConfig, 
     modelId: string,

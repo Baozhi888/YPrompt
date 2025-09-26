@@ -5,13 +5,17 @@
 import { 
   SYSTEM_PROMPT_RULES, 
   USER_GUIDED_PROMPT_RULES,
-  REQUIREMENT_REPORT_RULES
+  REQUIREMENT_REPORT_RULES,
+  FINAL_PROMPT_GENERATION_RULES,
+  FINAL_PROMPT_SYSTEM_MESSAGES
 } from './prompts/index'
 
 export interface PromptConfig {
   systemPromptRules: string
   userGuidedPromptRules: string
   requirementReportRules: string
+  finalPromptGenerationRules: typeof FINAL_PROMPT_GENERATION_RULES
+  finalPromptSystemMessages: typeof FINAL_PROMPT_SYSTEM_MESSAGES
 }
 
 // 提示词配置管理类
@@ -23,7 +27,9 @@ export class PromptConfigManager {
     this.config = {
       systemPromptRules: SYSTEM_PROMPT_RULES,
       userGuidedPromptRules: USER_GUIDED_PROMPT_RULES,
-      requirementReportRules: REQUIREMENT_REPORT_RULES
+      requirementReportRules: REQUIREMENT_REPORT_RULES,
+      finalPromptGenerationRules: FINAL_PROMPT_GENERATION_RULES,
+      finalPromptSystemMessages: FINAL_PROMPT_SYSTEM_MESSAGES
     }
     this.loadFromStorage()
   }
@@ -62,10 +68,30 @@ export class PromptConfigManager {
     this.saveToStorage()
   }
 
+  public getFinalPromptGenerationRules(): typeof FINAL_PROMPT_GENERATION_RULES {
+    return this.config.finalPromptGenerationRules
+  }
+
+  public updateFinalPromptGenerationRules(rules: typeof FINAL_PROMPT_GENERATION_RULES): void {
+    this.config.finalPromptGenerationRules = rules
+    this.saveToStorage()
+  }
+
+  public getFinalPromptSystemMessages(): typeof FINAL_PROMPT_SYSTEM_MESSAGES {
+    return this.config.finalPromptSystemMessages
+  }
+
+  public updateFinalPromptSystemMessages(messages: typeof FINAL_PROMPT_SYSTEM_MESSAGES): void {
+    this.config.finalPromptSystemMessages = messages
+    this.saveToStorage()
+  }
+
   public resetToDefaults(): void {
     this.config.systemPromptRules = SYSTEM_PROMPT_RULES
     this.config.userGuidedPromptRules = USER_GUIDED_PROMPT_RULES
     this.config.requirementReportRules = REQUIREMENT_REPORT_RULES
+    this.config.finalPromptGenerationRules = FINAL_PROMPT_GENERATION_RULES
+    this.config.finalPromptSystemMessages = FINAL_PROMPT_SYSTEM_MESSAGES
     this.saveToStorage()
   }
 
@@ -87,6 +113,18 @@ export class PromptConfigManager {
     this.saveToStorage()
   }
 
+  // 重置最终提示词生成规则为默认值
+  public resetFinalPromptGenerationRules(): void {
+    this.config.finalPromptGenerationRules = FINAL_PROMPT_GENERATION_RULES
+    this.saveToStorage()
+  }
+
+  // 重置最终提示词系统消息为默认值
+  public resetFinalPromptSystemMessages(): void {
+    this.config.finalPromptSystemMessages = FINAL_PROMPT_SYSTEM_MESSAGES
+    this.saveToStorage()
+  }
+
   private saveToStorage(): void {
     try {
       localStorage.setItem('yprompt_config', JSON.stringify(this.config))
@@ -104,13 +142,17 @@ export class PromptConfigManager {
         this.config.systemPromptRules = parsed.systemPromptRules || SYSTEM_PROMPT_RULES
         this.config.userGuidedPromptRules = parsed.userGuidedPromptRules || USER_GUIDED_PROMPT_RULES
         this.config.requirementReportRules = parsed.requirementReportRules || REQUIREMENT_REPORT_RULES
+        this.config.finalPromptGenerationRules = parsed.finalPromptGenerationRules || FINAL_PROMPT_GENERATION_RULES
+        this.config.finalPromptSystemMessages = parsed.finalPromptSystemMessages || FINAL_PROMPT_SYSTEM_MESSAGES
       }
     } catch (error) {
       // 加载失败时使用默认配置
       this.config = {
         systemPromptRules: SYSTEM_PROMPT_RULES,
         userGuidedPromptRules: USER_GUIDED_PROMPT_RULES,
-        requirementReportRules: REQUIREMENT_REPORT_RULES
+        requirementReportRules: REQUIREMENT_REPORT_RULES,
+        finalPromptGenerationRules: FINAL_PROMPT_GENERATION_RULES,
+        finalPromptSystemMessages: FINAL_PROMPT_SYSTEM_MESSAGES
       }
     }
   }

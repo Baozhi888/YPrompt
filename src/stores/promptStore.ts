@@ -67,7 +67,7 @@ export const usePromptStore = defineStore('prompt', () => {
   })
 
   const promptData = ref<PromptData>({
-    requirementReport: '', // 新增：需求总结报告
+    requirementReport: '', // 需求总结报告
     generatedPrompt: {
       zh: '',
       en: ''

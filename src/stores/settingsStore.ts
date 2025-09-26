@@ -9,7 +9,7 @@ export interface ModelConfig {
   enabled: boolean
   apiType?: 'openai' | 'anthropic' | 'google' // 模型使用的API类型
   
-  // 新增：能力检测相关字段
+  // 能力检测相关字段
   capabilities?: ModelCapabilities
   lastTested?: Date
   testStatus?: 'untested' | 'testing' | 'success' | 'failed'
@@ -67,6 +67,12 @@ export const useSettingsStore = defineStore('settings', () => {
   const editingSystemRules = ref('')
   const editingUserRules = ref('')
   const editingRequirementReportRules = ref('')
+  const editingFinalPromptRules = ref({
+    THINKING_POINTS_EXTRACTION: '',
+    SYSTEM_PROMPT_GENERATION: '',
+    OPTIMIZATION_ADVICE_GENERATION: '',
+    OPTIMIZATION_APPLICATION: ''
+  })
 
   // 初始化默认配置
   const initializeDefaults = () => {
@@ -288,6 +294,8 @@ export const useSettingsStore = defineStore('settings', () => {
     editingSystemRules.value = promptConfigManager.getSystemPromptRules()
     editingUserRules.value = promptConfigManager.getUserGuidedPromptRules()
     editingRequirementReportRules.value = promptConfigManager.getRequirementReportRules()
+    const finalRules = promptConfigManager.getFinalPromptGenerationRules()
+    editingFinalPromptRules.value = { ...finalRules }
     showPromptEditor.value = true
   }
 
@@ -297,6 +305,12 @@ export const useSettingsStore = defineStore('settings', () => {
     editingSystemRules.value = ''
     editingUserRules.value = ''
     editingRequirementReportRules.value = ''
+    editingFinalPromptRules.value = {
+      THINKING_POINTS_EXTRACTION: '',
+      SYSTEM_PROMPT_GENERATION: '',
+      OPTIMIZATION_ADVICE_GENERATION: '',
+      OPTIMIZATION_APPLICATION: ''
+    }
   }
 
   const savePromptRules = () => {
@@ -304,6 +318,7 @@ export const useSettingsStore = defineStore('settings', () => {
     promptConfigManager.updateSystemPromptRules(editingSystemRules.value)
     promptConfigManager.updateUserGuidedPromptRules(editingUserRules.value)
     promptConfigManager.updateRequirementReportRules(editingRequirementReportRules.value)
+    promptConfigManager.updateFinalPromptGenerationRules(editingFinalPromptRules.value)
     closePromptEditor()
   }
 
@@ -323,6 +338,13 @@ export const useSettingsStore = defineStore('settings', () => {
     // 重置需求报告规则为默认值
     promptConfigManager.resetRequirementReportRules()
     editingRequirementReportRules.value = promptConfigManager.getRequirementReportRules()
+  }
+
+  const resetFinalPromptGenerationRules = () => {
+    // 重置最终提示词生成规则为默认值
+    promptConfigManager.resetFinalPromptGenerationRules()
+    const finalRules = promptConfigManager.getFinalPromptGenerationRules()
+    editingFinalPromptRules.value = { ...finalRules }
   }
 
   // 获取当前的提示词规则
@@ -361,7 +383,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  // 新增：快速更新连接状态（不等思考结果）
+  // 快速更新连接状态（不等思考结果）
   const updateModelConnectionStatus = (providerId: string, modelId: string, connected: boolean, error?: string) => {
     const provider = providers.value.find(p => p.id === providerId)
     if (provider) {
@@ -403,7 +425,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  // 新增：清空模型测试状态
+  // 清空模型测试状态
   const clearModelTestStatus = (providerId: string, modelId: string) => {
     const provider = providers.value.find(p => p.id === providerId)
     if (provider) {
@@ -475,6 +497,7 @@ export const useSettingsStore = defineStore('settings', () => {
     editingSystemRules,
     editingUserRules,
     editingRequirementReportRules,
+    editingFinalPromptRules,
     // 原有方法
     initializeDefaults,
     getProviderTemplate,
@@ -495,10 +518,11 @@ export const useSettingsStore = defineStore('settings', () => {
     resetSystemPromptRules,
     resetUserPromptRules,
     resetRequirementReportRules,
+    resetFinalPromptGenerationRules,
     getCurrentSystemRules,
     getCurrentUserRules,
     getCurrentRequirementReportRules,
-    // 新增：模型测试相关方法
+    // 模型测试相关方法
     updateModelTestStatus,
     updateModelCapabilities,
     updateModelConnectionStatus,

@@ -46,7 +46,7 @@ import { CODE_REVIEW_PROMPT_RULES } from './codeReviewRules'
 export {
   SYSTEM_PROMPT_RULES,
   USER_GUIDED_PROMPT_RULES,
-  CODE_REVIEW_PROMPT_RULES  // 新增导出
+  CODE_REVIEW_PROMPT_RULES 
 }
 ```
 

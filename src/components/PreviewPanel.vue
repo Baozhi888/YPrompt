@@ -129,9 +129,9 @@
           ></textarea>
           
           <!-- 执行按钮 - 固定在底部 -->
-          <div class="mt-4 flex justify-between flex-shrink-0">
+          <div class="mt-4 flex justify-end flex-shrink-0">
             <!-- 自动模式下的按钮 -->
-            <div v-if="promptStore.isAutoMode" class="flex space-x-2">
+            <div v-if="promptStore.isAutoMode">
               <button
                 @click="executeFullWorkflow"
                 :disabled="!promptStore.promptData.requirementReport.trim() || isExecuting || promptStore.isGenerating"
@@ -143,7 +143,7 @@
             </div>
             
             <!-- 手动模式下的按钮 -->
-            <div v-if="!promptStore.isAutoMode" class="flex justify-end">
+            <div v-if="!promptStore.isAutoMode">
               <button
                 @click="executeThinkingPoints"
                 :disabled="!promptStore.promptData.requirementReport.trim() || isExecuting"
@@ -160,7 +160,7 @@
       <!-- Thinking Points -->
       <div v-if="activeTab === 'thinking'" class="border rounded-lg overflow-hidden flex flex-col flex-1 min-h-0">
         <div class="bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 flex items-center justify-between flex-shrink-0">
-          <span>关键指令 (GPrompt步骤1)</span>
+          <span>关键指令</span>
           <div class="flex items-center space-x-2">
             <button
               @click="regenerateThinkingPoints"
@@ -228,7 +228,7 @@
       <!-- Initial Prompt -->
       <div v-if="activeTab === 'initial'" class="border rounded-lg overflow-hidden flex flex-col flex-1">
         <div class="bg-green-50 px-3 py-2 text-sm font-medium text-green-700 flex items-center justify-between flex-shrink-0">
-          <span>初始提示词 (GPrompt步骤2)</span>
+          <span>初始提示词</span>
           <div class="flex items-center space-x-2">
             <button
               @click="regenerateInitialPrompt"
@@ -271,7 +271,7 @@
       <!-- Optimization Advice -->
       <div v-if="activeTab === 'advice'" class="border rounded-lg overflow-hidden flex flex-col flex-1 min-h-0">
         <div class="bg-yellow-50 px-3 py-2 text-sm font-medium text-yellow-700 flex items-center justify-between flex-shrink-0">
-          <span>优化建议 (GPrompt步骤3)</span>
+          <span>优化建议</span>
           <div class="flex items-center space-x-2">
             <button
               @click="regenerateAdvice"
@@ -340,7 +340,7 @@
       <!-- Final Generated Prompt -->
       <div v-if="activeTab === 'zh'" class="border rounded-lg overflow-hidden flex flex-col flex-1">
         <div class="bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 flex items-center justify-between flex-shrink-0">
-          <span>最终提示词 (GPrompt步骤4)</span>
+          <span>最终提示词</span>
           <div class="flex items-center space-x-2">
             <button
               @click="regenerateFinalPrompt"
@@ -436,7 +436,7 @@ const notificationStore = useNotificationStore()
 const aiService = AIService.getInstance()
 const aiGuideService = AIGuideService.getInstance()
 
-// 新增：标签页状态
+// 标签页状态
 const activeTab = ref<'report' | 'thinking' | 'initial' | 'advice' | 'zh' | 'en'>('report')
 
 // 标签页相关 refs
@@ -447,7 +447,7 @@ const initialTab = ref<HTMLButtonElement>()
 const adviceTab = ref<HTMLButtonElement>()
 const zhTab = ref<HTMLButtonElement>()
 
-// 新增：跟踪最新生成的内容
+// 跟踪最新生成的内容
 const newContentTabs = ref<Set<string>>(new Set())
 
 // 步骤显示名称映射

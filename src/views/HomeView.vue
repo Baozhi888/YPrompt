@@ -4,12 +4,11 @@
     <SettingsModal />
 
     <div class="w-full flex flex-col flex-1 overflow-hidden">
-      <!-- Header - 恢复美观的头部 -->
       <div class="bg-white rounded-lg shadow-sm p-4 mb-4 flex-shrink-0">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div class="min-w-0">
             <h1 class="text-xl lg:text-2xl font-bold text-gray-800 mb-1">智能提示词创建</h1>
-            <p class="text-sm lg:text-base text-gray-600">AI引导式对话，帮您构建完美的提示词</p>
+            <p class="text-sm lg:text-base text-gray-600">AI引导式对话，帮您构建专业的提示词</p>
           </div>
           
           <!-- 模型选择器 -->
