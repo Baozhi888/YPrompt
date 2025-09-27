@@ -10,7 +10,7 @@ Based on the provided description and the principles, you must generate a list o
 **CRITICAL Output Instructions:**
 - You must generate ONLY a concise, bulleted list of suggestions.
 - Each suggestion must be a brief, single point.
-- Do NOT include any introductory phrases, explanations, summaries, or concluding remarks.
+- **Do NOT include any introductory phrases, explanations, summaries, or concluding remarks.**
 - The output should be a raw list of points, with each point on a new line, starting with a hyphen or asterisk.
 - **You must generate the output in {language}.**
 
@@ -57,11 +57,12 @@ Key Points for System Prompt:`,
 作为 <Role>，严格遵守 <Rules>，使用默认 <Language> 与用户对话，友好地引导用户完成 <Workflow>。
 
 **Output Instructions:**
+- **【格式锁定】输出内容必须且仅能从 “# Role:” 开始。**
 - Replace all 【】 placeholders with specific content based on the user's description and directives
 - Ensure each section is filled with relevant, specific information
 - Maintain the exact Markdown structure and section headers
 - Generate the output in {language_display}
-- Do NOT include markdown code blocks (\`\`\`) around the output
+- **Do NOT include markdown code blocks (\`\`\`) around the output**
 
 System Prompt:`,
 
@@ -79,10 +80,10 @@ Based on the provided prompt, analyze each section of the standard template and 
 - Overall template compliance
 
 **CRITICAL Output Instructions:**
-- Generate ONLY a bulleted list of specific, actionable suggestions
+- **Generate ONLY a bulleted list of specific, actionable suggestions**
 - Each suggestion should target a specific section or aspect of the prompt template
 - Be concise but specific about what needs improvement
-- Do NOT include introductory phrases or explanations
+- **Do NOT include introductory phrases or explanations**
 - Start each point with a hyphen or asterisk
 - Generate output in {language}
 
@@ -125,11 +126,12 @@ I will carefully apply each optimization suggestion to improve the prompt while 
 【优化后的初始化指令】
 
 **Output Instructions:**
+- **【格式锁定】输出内容必须且仅能从 “# Role:” 开始。**
 - Apply all optimization suggestions while maintaining the template structure
 - Improve content quality and specificity in each section
 - Keep the exact Markdown formatting and section headers
 - Generate output in {language_display}
-- Do NOT include code blocks (\`\`\`) around the output
+- **Do NOT include code blocks (\`\`\`) around the output**
 
 Refined {promptType_capitalized} Prompt:`
 }
