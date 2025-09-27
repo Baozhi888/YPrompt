@@ -134,36 +134,36 @@
         :class="message.type === 'user' ? 'justify-end' : 'justify-start'"
         class="flex group"
       >
-        <div class="flex flex-col w-full" :class="message.isEditing ? 'max-w-2xl' : 'max-w-xs lg:max-w-md'">
+        <div class="flex flex-col w-full" :class="message.isEditing ? 'max-w-full sm:max-w-2xl' : 'max-w-xs lg:max-w-md'">
           <!-- 消息内容 -->
           <div
             :class="[
               message.isEditing 
-                ? 'bg-white border-2 border-blue-300 shadow-lg' 
+                ? 'bg-transparent border-0 shadow-none p-0' 
                 : message.type === 'user' 
-                  ? 'bg-blue-500 text-white' 
+                  ? 'bg-blue-500 text-white px-4 py-3 rounded-lg' 
                   : message.isProgress 
-                    ? 'bg-blue-50 text-blue-800 border border-blue-200' 
-                    : 'bg-gray-100 text-gray-800',
+                    ? 'bg-blue-50 text-blue-800 border border-blue-200 px-4 py-3 rounded-lg' 
+                    : 'bg-gray-100 text-gray-800 px-4 py-3 rounded-lg',
               message.isProgress && 'animate-pulse',
-              !message.isEditing && (message.type === 'user' ? 'ml-auto' : 'mr-auto')
+              !message.isEditing && (message.type === 'user' ? 'ml-auto' : 'mr-auto'),
+              'transition-all duration-300 relative'
             ]"
-            class="px-4 py-3 rounded-lg transition-all duration-300 relative"
           >
             <!-- 编辑模式 -->
-            <div v-if="message.isEditing" class="space-y-3">
-              <div class="text-sm text-gray-600 font-medium mb-2">
-                编辑{{ message.type === 'user' ? '用户' : 'AI' }}消息
-              </div>
-              <textarea
-                :ref="(el: any) => setEditTextareaRef(message.id!, el as HTMLTextAreaElement)"
-                v-model="editingContent[message.id!]"
-                class="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 bg-white min-h-[120px] max-h-[300px] overflow-y-auto"
-                @keydown="handleEditKeydown($event, message.id!)"
-                placeholder="编辑消息内容..."
-              ></textarea>
-              <div class="text-xs text-gray-500 mt-1">
-                快捷键：Ctrl+Enter 保存，Escape 取消
+            <div v-if="message.isEditing" class="relative">
+              <!-- 简洁编辑框容器 -->
+              <div class="relative border border-blue-300 rounded-2xl overflow-hidden bg-white">
+                <!-- 文本编辑区域 -->
+                <div class="relative">
+                  <textarea
+                    :ref="(el: any) => setEditTextareaRef(message.id!, el as HTMLTextAreaElement)"
+                    v-model="editingContent[message.id!]"
+                    class="w-full p-4 border-0 resize-none focus:outline-none text-gray-800 bg-white min-h-[80px] max-h-[200px] overflow-y-auto text-base"
+                    @keydown="handleEditKeydown($event, message.id!)"
+                    placeholder="编辑消息内容..."
+                  ></textarea>
+                </div>
               </div>
             </div>
             
@@ -232,46 +232,32 @@
             v-if="!message.isProgress"
             class="flex space-x-1 mt-2 transition-opacity duration-200"
             :class="[
-              message.isEditing 
-                ? 'opacity-100 justify-center' 
-                : 'opacity-0 group-hover:opacity-100 ' + (message.type === 'user' ? 'justify-end' : 'justify-start')
+              message.isEditing ? 'opacity-100 justify-end' : 'opacity-0 group-hover:opacity-100 ' + (message.type === 'user' ? 'justify-end' : 'justify-start')
             ]"
           >
             <!-- 编辑状态下的按钮 -->
             <template v-if="message.isEditing">
               <button
-                @click="saveEdit(message.id!)"
-                class="flex items-center space-x-1 px-3 py-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 transition-colors rounded-lg border border-green-200"
-                title="保存编辑 (Ctrl+Enter)"
-              >
-                <Check class="w-4 h-4" />
-                <span class="text-sm font-medium">保存</span>
-              </button>
-              
-              <button
-                v-if="message.type === 'user'"
-                @click="resendMessage(message.id!)"
-                class="flex items-center space-x-1 px-3 py-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors rounded-lg border border-blue-200"
-                title="保存并重新发送"
+                @click="message.type === 'user' ? resendMessage(message.id!) : saveEdit(message.id!)"
+                class="p-1.5 text-gray-500 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100"
+                :title="message.type === 'user' ? '保存并重新发送' : '保存编辑'"
                 :disabled="promptStore.isTyping || promptStore.isGenerating"
               >
-                <Send class="w-4 h-4" />
-                <span class="text-sm font-medium">重新发送</span>
+                <Send class="w-3.5 h-3.5" />
               </button>
               
               <button
                 @click="cancelEdit(message.id!)"
-                class="flex items-center space-x-1 px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors rounded-lg border border-gray-200"
-                title="取消编辑 (Escape)"
+                class="p-1.5 text-gray-500 hover:text-red-600 transition-colors rounded-lg hover:bg-gray-100"
+                title="取消编辑"
               >
-                <X class="w-4 h-4" />
-                <span class="text-sm font-medium">取消</span>
+                <X class="w-3.5 h-3.5" />
               </button>
             </template>
             
             <!-- 正常状态下的按钮 -->
             <template v-else>
-              <!-- 重新生成按钮（仅AI消息） -->
+            <!-- 重新生成按钮（仅AI消息） -->
               <button
                 v-if="message.type === 'ai'"
                 @click="regenerateMessage(message.id!, index)"
@@ -489,7 +475,7 @@ import { AIGuideService } from '@/services/aiGuideService'
 import { AIService } from '@/services/aiService'
 import { PromptGeneratorService } from '@/services/promptGeneratorService'
 import { getPromptGeneratorConfig } from '@/config/promptGenerator'
-import { ArrowUp, ChevronUp, RefreshCw, Edit2, Trash2, Copy, Check, X, Send, Upload, Paperclip } from 'lucide-vue-next'
+import { ArrowUp, ChevronUp, RefreshCw, Edit2, Trash2, Copy, X, Send, Upload, Paperclip } from 'lucide-vue-next'
 import { marked } from 'marked'
 import { cleanAIResponse, checkAIDecision } from '@/utils/aiResponseUtils'
 import type { MessageAttachment } from '@/stores/promptStore'
@@ -571,7 +557,7 @@ const checkForceGenerate = (userInput: string): boolean => {
 // 切换流式模式
 const toggleStreamMode = () => {
   isStreamMode.value = !isStreamMode.value
-  // 可以选择将状态保存到本地存储
+  // 保存到本地存储
   localStorage.setItem('yprompt_stream_mode', JSON.stringify(isStreamMode.value))
 }
 
@@ -1026,6 +1012,8 @@ const sendMessage = async () => {
 // 生成提示词
 const generatePrompt = async (provider: any, modelId: string) => {
   try {
+    // 清除之前的进度消息
+    promptStore.clearProgressMessages()
 
     // 生成需求报告 - 使用有效消息（排除被删除的消息）
     const validMessages = promptStore.getValidMessages()
@@ -1299,7 +1287,9 @@ const startEdit = (messageId: string) => {
       const textarea = editTextareaRefs.value[messageId]
       if (textarea) {
         textarea.focus()
-        textarea.select()
+        // 将光标定位到文本末尾
+        const length = textarea.value.length
+        textarea.setSelectionRange(length, length)
       }
     })
   }
@@ -1456,6 +1446,9 @@ const resendMessage = async (messageId: string) => {
     delete editingContent.value[messageId]
     delete editTextareaRefs.value[messageId]
     
+    // 清除进度消息
+    promptStore.clearProgressMessages()
+    
     // 删除该用户消息之后的所有消息（包括AI回复）
     const messageIndex = promptStore.chatMessages.findIndex(msg => msg.id === messageId)
     if (messageIndex !== -1) {
@@ -1567,7 +1560,6 @@ const resendMessage = async (messageId: string) => {
         }
       }
       
-      notificationStore.success('消息已重新发送')
       
     } catch (error: unknown) {
       promptStore.isTyping = false
@@ -1602,6 +1594,9 @@ const resendUserMessage = async (messageId: string, messageIndex: number) => {
   }
 
   try {
+    // 清除进度消息
+    promptStore.clearProgressMessages()
+    
     // 删除该用户消息之后的所有消息（包括AI回复）
     if (messageIndex !== -1) {
       // 标记后续消息为删除状态
@@ -1711,7 +1706,6 @@ const resendUserMessage = async (messageId: string, messageIndex: number) => {
       }
     }
     
-    notificationStore.success('消息已重新发送')
     
   } catch (error: unknown) {
     promptStore.isTyping = false

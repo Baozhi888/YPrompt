@@ -1,5 +1,6 @@
 import { AIService } from './aiService'
 import type { ProviderConfig } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { promptConfigManager } from '@/config/prompts'
 
 export class PromptGeneratorService {
@@ -40,14 +41,10 @@ For example, if a variable is \`{{user_topic}}\`, you might include a sentence l
     `
   }
 
-  // 获取流式模式设置（与ChatInterface保持同步）
+  // 获取流式模式设置（与settingsStore保持同步）
   private getStreamMode(): boolean {
-    try {
-      const savedStreamMode = localStorage.getItem('yprompt_stream_mode')
-      return savedStreamMode ? JSON.parse(savedStreamMode) : true // 默认为true
-    } catch (error) {
-      return true // 默认为流式模式
-    }
+    const settingsStore = useSettingsStore()
+    return settingsStore.streamMode
   }
 
   // 获取系统提示词关键指令
@@ -59,40 +56,31 @@ For example, if a variable is \`{{user_topic}}\`, you might include a sentence l
     provider?: ProviderConfig,
     onStreamUpdate?: (content: string) => void
   ): Promise<string[]> {
-    // 使用内置的系统提示词规则
-    const SYSTEM_PROMPT_RULES = promptConfigManager.getSystemPromptRules()
-
     const variablesSection = this.formatVariablesForPrompt(variables)
 
     // 获取配置的最终提示词生成规则
     const finalRules = promptConfigManager.getFinalPromptGenerationRules()
     
-    const masterPrompt = `
-${finalRules.THINKING_POINTS_EXTRACTION}
+    const systemContent = finalRules.THINKING_POINTS_EXTRACTION.replace('{language}', language)
 
----
-Here are the principles I will follow (THE GENERATED PROMPT MUST FULLY FOLLOW THIS RULES):
-${SYSTEM_PROMPT_RULES}
----
-${variablesSection}
+    const masterPrompt = `${variablesSection}
 User's Description for AI Persona:
 ---
 ${description}
----
-    `.replace('{language}', language)
+---`
 
-    // 获取配置的系统消息
-    const systemMessages = promptConfigManager.getFinalPromptSystemMessages()
-    
     const systemMessage = {
       role: 'system' as const,
-      content: systemMessages.THINKING_POINTS_SYSTEM
+      content: systemContent
     }
 
     const userMessage = {
       role: 'user' as const,
       content: masterPrompt
     }
+    
+    console.log('🔍 [getSystemPromptThinkingPoints] System message:', systemMessage)
+    console.log('🔍 [getSystemPromptThinkingPoints] Messages array:', [systemMessage, userMessage])
 
     if (!provider) {
       throw new Error('请先配置AI提供商')
@@ -107,6 +95,7 @@ ${description}
       })
     }
     
+    console.log('🔍 [getSystemPromptThinkingPoints] Calling aiService.callAI with messages:', [systemMessage, userMessage])
     const response = await this.aiService.callAI([systemMessage, userMessage], provider, model, streamMode)
     
     // 清理流式回调
@@ -154,27 +143,23 @@ ${thinkingPoints.filter(p => p.trim() !== '').map(p => `- ${p}`).join('\n')}
     
     const languageDisplay = language === 'zh' ? '中文' : 'English'
     
-    const masterPrompt = `
-${finalRules.SYSTEM_PROMPT_GENERATION}
+    const systemContent = `${finalRules.SYSTEM_PROMPT_GENERATION}
 
 ---
 Here are the prompt engineering rules I will follow:
 ${SYSTEM_PROMPT_RULES}
----
-${variablesSection}
+---`.replace('{language_display}', languageDisplay)
+
+    const masterPrompt = `${variablesSection}
 ${thinkingPointsSection}
 User's Original Description:
 ---
 ${description}
----
-    `.replace('{language_display}', languageDisplay)
+---`
 
-    // 获取配置的系统消息
-    const systemMessages = promptConfigManager.getFinalPromptSystemMessages()
-    
     const systemMessage = {
       role: 'system' as const,
-      content: systemMessages.SYSTEM_PROMPT_SYSTEM
+      content: systemContent
     }
 
     const userMessage = {
@@ -202,8 +187,17 @@ ${description}
       this.aiService.clearStreamUpdateCallback()
     }
     
-    // 清理markdown格式
-    return response.replace(/```/g, '').trim()
+    // 清理markdown代码块格式
+    let cleaned = response.replace(/```/g, '').trim()
+    
+    // 如果开头有"markdown"字符，移除它
+    if (cleaned.startsWith('markdown\n')) {
+      cleaned = cleaned.substring(9) // 移除"markdown\n"
+    } else if (cleaned.startsWith('markdown')) {
+      cleaned = cleaned.substring(8) // 移除"markdown"
+    }
+    
+    return cleaned.trim()
   }
 
   // 获取优化建议
@@ -216,9 +210,6 @@ ${description}
     provider?: ProviderConfig,
     onStreamUpdate?: (content: string) => void
   ): Promise<string[]> {
-    // 使用内置的系统提示词规则
-    const SYSTEM_PROMPT_RULES = promptConfigManager.getSystemPromptRules()
-
     const variablesSection = this.formatVariablesForPrompt(variables)
 
     // 获取配置的最终提示词生成规则
@@ -226,26 +217,17 @@ ${description}
     
     const promptTypeCapitalized = promptType.charAt(0).toUpperCase() + promptType.slice(1)
     
-    const masterPrompt = `
-${finalRules.OPTIMIZATION_ADVICE_GENERATION}
+    const systemContent = finalRules.OPTIMIZATION_ADVICE_GENERATION.replace('{promptType}', promptType).replace('{language}', language)
 
----
-Here are the prompt engineering principles I will follow:
-${SYSTEM_PROMPT_RULES}
----
-${variablesSection}
+    const masterPrompt = `${variablesSection}
 ${promptTypeCapitalized} Prompt to Analyze:
 ---
 ${promptToAnalyze}
----
-    `.replace('{promptType}', promptType).replace('{language}', language)
+---`
 
-    // 获取配置的系统消息
-    const systemMessages = promptConfigManager.getFinalPromptSystemMessages()
-    
     const systemMessage = {
       role: 'system' as const,
-      content: systemMessages.OPTIMIZATION_ADVICE_SYSTEM
+      content: systemContent
     }
 
     const userMessage = {
@@ -305,14 +287,16 @@ ${promptToAnalyze}
     const languageDisplay = language === 'zh' ? '中文' : 'English'
     const promptTypeCapitalized = promptType.charAt(0).toUpperCase() + promptType.slice(1)
     
-    const masterPrompt = `
-${finalRules.OPTIMIZATION_APPLICATION}
+    const systemContent = `${finalRules.OPTIMIZATION_APPLICATION}
 
 ---
 Here are the core principles of elite prompt engineering I will follow:
 ${SYSTEM_PROMPT_RULES}
----
-${variablesSection}
+---`.replace('{promptType}', promptType)
+      .replace('{language_display}', languageDisplay)
+      .replace('{promptType_capitalized}', promptTypeCapitalized)
+
+    const masterPrompt = `${variablesSection}
 Original ${promptTypeCapitalized} Prompt:
 ---
 ${originalPrompt}
@@ -321,23 +305,20 @@ ${originalPrompt}
 Optimization Suggestions to Apply:
 ---
 ${adviceSection}
----
-    `.replace('{promptType}', promptType)
-      .replace('{language_display}', languageDisplay)
-      .replace('{promptType_capitalized}', promptTypeCapitalized)
+---`
 
-    // 获取配置的系统消息
-    const systemMessages = promptConfigManager.getFinalPromptSystemMessages()
-    
     const systemMessage = {
       role: 'system' as const,
-      content: systemMessages.OPTIMIZATION_APPLICATION_SYSTEM
+      content: systemContent
     }
 
     const userMessage = {
       role: 'user' as const,
       content: masterPrompt
     }
+    
+    console.log('🔍 [applyOptimizationAdvice] System message:', systemMessage)
+    console.log('🔍 [applyOptimizationAdvice] Messages array:', [systemMessage, userMessage])
 
     if (!provider) {
       throw new Error('请先配置AI提供商')
@@ -352,6 +333,7 @@ ${adviceSection}
       })
     }
     
+    console.log('🔍 [applyOptimizationAdvice] Calling aiService.callAI with messages:', [systemMessage, userMessage])
     const response = await this.aiService.callAI([systemMessage, userMessage], provider, model, streamMode)
     
     // 清理流式回调
@@ -359,7 +341,16 @@ ${adviceSection}
       this.aiService.clearStreamUpdateCallback()
     }
     
-    // 清理markdown格式
-    return response.replace(/```/g, '').trim()
+    // 清理markdown代码块格式
+    let cleaned = response.replace(/```/g, '').trim()
+    
+    // 如果开头有"markdown"字符，移除它
+    if (cleaned.startsWith('markdown\n')) {
+      cleaned = cleaned.substring(9) // 移除"markdown\n"
+    } else if (cleaned.startsWith('markdown')) {
+      cleaned = cleaned.substring(8) // 移除"markdown"
+    }
+    
+    return cleaned.trim()
   }
 }

@@ -46,6 +46,11 @@ export class AIService {
 
   // 清理<think></think>标签内容，支持流式增量处理
   private filterThinkTags(chunk: string): string {
+    // 只过滤think标签，markdown代码块过滤有问题，暂时禁用
+    return this.filterThinkTagsInternal(chunk)
+  }
+
+  private filterThinkTagsInternal(chunk: string): string {
     // 将新的chunk添加到缓冲区
     this.thinkBuffer += chunk
     
@@ -98,8 +103,9 @@ export class AIService {
     return result
   }
 
-  // 重置think标签处理状态
-  private resetThinkState(): void {
+
+  // 重置过滤状态
+  private resetFilterState(): void {
     this.thinkBuffer = ''
     this.isInThinkMode = false
   }
@@ -690,7 +696,8 @@ export class AIService {
         case 'google':
           return await this.callGoogleAPIStream(messages, provider, modelId)
         default:
-          return await this.callOpenAIAPIStream(messages, provider, modelId)
+          // 其他API类型暂时使用非流式调用
+          throw new Error('Stream not implemented for this API type')
       }
     } catch (error) {
       // 检查是否是不支持的MIME类型错误，如果是，直接抛出友好错误，不尝试降级
@@ -700,8 +707,9 @@ export class AIService {
         throw new Error(friendlyErrorMessage)
       }
       
-      // 其他错误尝试降级到非流式
-      try {
+      // 只有在特定错误时才降级到非流式
+      if (errorMessage.includes('Stream not implemented')) {
+        // 降级到非流式调用
         switch (apiType) {
           case 'openai':
             return await this.callOpenAIAPI(messages, provider, modelId)
@@ -712,11 +720,12 @@ export class AIService {
           default:
             return await this.callOpenAIAPI(messages, provider, modelId)
         }
-      } catch (fallbackError) {
-        // 降级失败，解析并抛出友好的错误信息
-        const friendlyErrorMessage = this.parseAPIError(fallbackError, apiType)
-        throw new Error(friendlyErrorMessage)
       }
+      
+      
+      // 其他错误直接抛出
+      const friendlyErrorMessage = this.parseAPIError(error, apiType)
+      throw new Error(friendlyErrorMessage)
     }
   }
 
@@ -886,9 +895,14 @@ export class AIService {
 
   // Google Gemini API调用
   private async callGoogleAPI(messages: ChatMessage[], provider: ProviderConfig, modelId: string): Promise<string> {
+    console.log('🔍 [callGoogleAPI] Received messages:', messages)
+    
     // Google Gemini API格式转换
     const systemMessage = this.extractSystemMessageText(messages)
+    console.log('🔍 [callGoogleAPI] Extracted system message:', systemMessage)
+    
     const conversationMessages = messages.filter(m => m.role !== 'system')
+    console.log('🔍 [callGoogleAPI] Conversation messages after filtering:', conversationMessages)
 
     const contents = conversationMessages.map(msg => {
       const role = msg.role === 'assistant' ? 'model' : 'user'
@@ -909,35 +923,37 @@ export class AIService {
       }
     }
 
-    // 如果有系统消息，添加到第一个用户消息前
-    if (systemMessage && contents.length > 0) {
-      // 找到第一个用户消息
-      const firstUserContent = contents.find(content => content.role === 'user')
-      if (firstUserContent && firstUserContent.parts) {
-        // 查找文本部分
-        const textPart = firstUserContent.parts.find(part => part.text)
-        if (textPart) {
-          // 将系统消息添加到现有文本前
-          textPart.text = systemMessage + '\n\n' + textPart.text
-        } else {
-          // 如果没有文本部分，添加一个新的文本部分到开头
-          firstUserContent.parts.unshift({ text: systemMessage } as any)
-        }
+    // 使用正确的system_instruction字段（顶级）
+    if (systemMessage) {
+      requestBody.system_instruction = {
+        parts: [
+          {
+            text: systemMessage
+          }
+        ]
       }
+      console.log('🔍 [callGoogleAPI] Added system_instruction to request body:', systemMessage.substring(0, 100) + '...')
+    } else {
+      console.log('🔍 [callGoogleAPI] Warning: No system message found for Gemini API')
     }
+    
+    console.log('🔍 [callGoogleAPI] Final request body structure:', {
+      hasContents: !!requestBody.contents,
+      contentsLength: requestBody.contents?.length,
+      hasSystemInstruction: !!requestBody.system_instruction,
+      systemInstructionText: requestBody.system_instruction?.parts?.[0]?.text?.substring(0, 50) + '...'
+    })
+    console.log('🔍 [callGoogleAPI] Complete request body:', JSON.stringify(requestBody, null, 2))
 
     console.log('[AIService] Final Gemini request body:', {
       contentsCount: contents.length,
       firstContentRole: contents[0]?.role,
-      firstContentPartsCount: contents[0]?.parts?.length,
-      hasInlineData: contents.some(content => 
-        content.parts?.some(part => part.inline_data)
-      ),
-      systemMessageLength: systemMessage.length,
+      hasSystemInstruction: !!systemMessage,
+      systemInstructionLength: systemMessage?.length || 0,
       modelId: modelId
     })
 
-    // 构建Google Gemini API URL - 总是拼接模型路径
+    // 构建Google Gemini API URL
     if (!provider.baseUrl) {
       throw new Error('API URL 未配置')
     }
@@ -956,17 +972,14 @@ export class AIService {
     // 拼接模型特定路径
     apiUrl = `${apiUrl}/models/${modelId}:generateContent`
     
-    // 添加API key参数
-    const url = new URL(apiUrl)
-    url.searchParams.set('key', provider.apiKey)
-    
     // 对于Google模型使用较长的超时时间
     const timeoutMs = 300000 // 5分钟
     
-    const response = await this.fetchWithTimeout(url.toString(), {
+    const response = await this.fetchWithTimeout(apiUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-goog-api-key': provider.apiKey  // 使用官方文档推荐的header
       },
       body: JSON.stringify(requestBody)
     }, timeoutMs)
@@ -1078,8 +1091,8 @@ export class AIService {
     let result = ''
     const decoder = new TextDecoder()
     
-    // 重置think标签处理状态
-    this.resetThinkState()
+    // 重置过滤状态
+    this.resetFilterState()
 
     try {
       while (true) {
@@ -1206,8 +1219,8 @@ export class AIService {
     let result = ''
     const decoder = new TextDecoder()
     
-    // 重置think标签处理状态
-    this.resetThinkState()
+    // 重置过滤状态
+    this.resetFilterState()
 
     try {
       while (true) {
@@ -1259,6 +1272,9 @@ export class AIService {
 
   // Google Gemini流式API调用
   private async callGoogleAPIStream(messages: ChatMessage[], provider: ProviderConfig, modelId: string): Promise<string> {
+    // 重置过滤状态
+    this.resetFilterState()
+    
     // Google Gemini API格式转换
     const systemMessage = this.extractSystemMessageText(messages)
     const conversationMessages = messages.filter(m => m.role !== 'system')
@@ -1282,12 +1298,21 @@ export class AIService {
       }
     }
 
-    // 如果有系统消息，添加到第一个用户消息前
-    if (systemMessage && contents.length > 0) {
-      contents[0].parts[0].text = systemMessage + '\n\n' + contents[0].parts[0].text
+    // 使用正确的system_instruction字段（顶级）
+    if (systemMessage) {
+      requestBody.system_instruction = {
+        parts: [
+          {
+            text: systemMessage
+          }
+        ]
+      }
+      console.log('[AIService] Gemini system_instruction set:', systemMessage.substring(0, 100) + '...')
+    } else {
+      console.log('[AIService] Warning: No system message found for Gemini API')
     }
 
-    // 构建Google Gemini API URL - 总是拼接模型路径
+    // 构建Google Gemini API URL（流式）
     if (!provider.baseUrl) {
       throw new Error('API URL 未配置')
     }
@@ -1303,18 +1328,18 @@ export class AIService {
         apiUrl = apiUrl.replace(/\/+$/, '') + '/v1beta'
       }
     }
-    // 拼接模型特定路径，添加stream参数
+    // 拼接模型特定路径（流式端点）
     apiUrl = `${apiUrl}/models/${modelId}:streamGenerateContent`
     
-    // 添加API key和SSE格式参数
+    // 添加SSE参数（根据官方文档）
     const url = new URL(apiUrl)
-    url.searchParams.set('key', provider.apiKey)
-    url.searchParams.set('alt', 'sse')  // Gemini API返回SSE格式
+    url.searchParams.set('alt', 'sse')
     
     const response = await this.fetchWithTimeout(url.toString(), {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-goog-api-key': provider.apiKey  // 使用官方文档推荐的header
       },
       body: JSON.stringify(requestBody)
     })
@@ -1336,8 +1361,8 @@ export class AIService {
     const decoder = new TextDecoder()
     let result = ''
     
-    // 重置think标签处理状态
-    this.resetThinkState()
+    // 重置过滤状态
+    this.resetFilterState()
 
     try {
       while (true) {
@@ -1724,7 +1749,7 @@ export class AIService {
     }
   }
 
-  // 测试连接（保持向后兼容）
+  // 测试连接
   async testConnection(provider: ProviderConfig, modelId: string): Promise<boolean> {
     try {
       const result = await this.testModelCapabilities(provider, modelId)

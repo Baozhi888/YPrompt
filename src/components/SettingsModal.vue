@@ -337,19 +337,21 @@
 
             <!-- 最终提示词生成规则编辑器 -->
             <div>
-              <div class="flex items-center justify-between mb-3">
+              <div class="mb-3">
                 <h3 class="text-lg font-medium">最终提示词生成规则</h3>
-                <button
-                  @click="resetFinalPromptGenerationRules"
-                  class="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-300 rounded"
-                >
-                  重置为默认
-                </button>
               </div>
               <div class="space-y-4">
                 <!-- 关键指令提取规则 -->
                 <div>
-                  <h4 class="text-sm font-medium text-gray-700 mb-2">关键指令提取</h4>
+                  <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-medium text-gray-700">关键指令提取</h4>
+                    <button
+                      @click="resetThinkingPointsExtractionPrompt"
+                      class="text-xs text-gray-400 hover:text-gray-600 px-1 py-0.5 border border-gray-200 rounded"
+                    >
+                      重置为默认
+                    </button>
+                  </div>
                   <textarea
                     v-model="settingsStore.editingFinalPromptRules.THINKING_POINTS_EXTRACTION"
                     placeholder="输入关键指令提取规则..."
@@ -359,7 +361,15 @@
                 
                 <!-- 系统提示词生成规则 -->
                 <div>
-                  <h4 class="text-sm font-medium text-gray-700 mb-2">系统提示词生成</h4>
+                  <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-medium text-gray-700">系统提示词生成</h4>
+                    <button
+                      @click="resetSystemPromptGenerationPrompt"
+                      class="text-xs text-gray-400 hover:text-gray-600 px-1 py-0.5 border border-gray-200 rounded"
+                    >
+                      重置为默认
+                    </button>
+                  </div>
                   <textarea
                     v-model="settingsStore.editingFinalPromptRules.SYSTEM_PROMPT_GENERATION"
                     placeholder="输入系统提示词生成规则..."
@@ -369,7 +379,15 @@
                 
                 <!-- 优化建议生成规则 -->
                 <div>
-                  <h4 class="text-sm font-medium text-gray-700 mb-2">优化建议生成</h4>
+                  <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-medium text-gray-700">优化建议生成</h4>
+                    <button
+                      @click="resetOptimizationAdvicePrompt"
+                      class="text-xs text-gray-400 hover:text-gray-600 px-1 py-0.5 border border-gray-200 rounded"
+                    >
+                      重置为默认
+                    </button>
+                  </div>
                   <textarea
                     v-model="settingsStore.editingFinalPromptRules.OPTIMIZATION_ADVICE_GENERATION"
                     placeholder="输入优化建议生成规则..."
@@ -379,7 +397,15 @@
                 
                 <!-- 优化应用规则 -->
                 <div>
-                  <h4 class="text-sm font-medium text-gray-700 mb-2">优化应用</h4>
+                  <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-medium text-gray-700">优化应用</h4>
+                    <button
+                      @click="resetOptimizationApplicationPrompt"
+                      class="text-xs text-gray-400 hover:text-gray-600 px-1 py-0.5 border border-gray-200 rounded"
+                    >
+                      重置为默认
+                    </button>
+                  </div>
                   <textarea
                     v-model="settingsStore.editingFinalPromptRules.OPTIMIZATION_APPLICATION"
                     placeholder="输入优化应用规则..."
@@ -1092,12 +1118,31 @@ const resetRequirementReportRules = () => {
   }
 }
 
-// 重置最终提示词生成规则
-const resetFinalPromptGenerationRules = () => {
-  if (confirm('确定要重置最终提示词生成规则为默认值吗？')) {
-    settingsStore.resetFinalPromptGenerationRules()
+// 重置独立的最终提示词生成规则
+const resetThinkingPointsExtractionPrompt = () => {
+  if (confirm('确定要重置关键指令提取规则为默认值吗？')) {
+    settingsStore.resetThinkingPointsExtractionPrompt()
   }
 }
+
+const resetSystemPromptGenerationPrompt = () => {
+  if (confirm('确定要重置系统提示词生成规则为默认值吗？')) {
+    settingsStore.resetSystemPromptGenerationPrompt()
+  }
+}
+
+const resetOptimizationAdvicePrompt = () => {
+  if (confirm('确定要重置优化建议生成规则为默认值吗？')) {
+    settingsStore.resetOptimizationAdvicePrompt()
+  }
+}
+
+const resetOptimizationApplicationPrompt = () => {
+  if (confirm('确定要重置优化应用规则为默认值吗？')) {
+    settingsStore.resetOptimizationApplicationPrompt()
+  }
+}
+
 
 const saveAndClose = () => {
   // 保存提示词规则（如果有修改的话）

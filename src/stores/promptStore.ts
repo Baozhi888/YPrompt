@@ -240,6 +240,11 @@ export const usePromptStore = defineStore('prompt', () => {
     return chatMessages.value.filter(msg => !msg.isDeleted && !msg.isProgress)
   }
 
+  // 清除进度消息
+  const clearProgressMessages = () => {
+    chatMessages.value = chatMessages.value.filter(msg => !msg.isProgress)
+  }
+
   return {
     currentStep,
     currentStepUserMessages,
@@ -265,6 +270,7 @@ export const usePromptStore = defineStore('prompt', () => {
     saveEditMessage,
     cancelEditMessage,
     updateMessage,
-    getValidMessages
+    getValidMessages,
+    clearProgressMessages
   }
 })

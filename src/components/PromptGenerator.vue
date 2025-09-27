@@ -103,15 +103,16 @@
         </div>
         
         <div v-if="openStep === 1" class="p-4 border-t">
-          <div v-if="thinkingPoints" class="space-y-2">
+          <div v-if="completedSteps.includes(1)" class="space-y-2">
             <div 
-              v-for="(_, index) in thinkingPoints" 
+              v-for="(_, index) in Math.max((thinkingPoints || []).length, 1)" 
               :key="index"
               class="flex items-start"
             >
               <span class="text-gray-500 mr-2">•</span>
               <input
-                v-model="thinkingPoints[index]"
+                v-model="(thinkingPoints || [])[index]"
+                @input="if (!thinkingPoints) thinkingPoints = []; thinkingPoints[index] = ($event.target as HTMLInputElement)?.value || ''"
                 class="flex-1 px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -160,7 +161,7 @@
         </div>
         
         <div v-if="openStep === 2" class="p-4 border-t">
-          <div v-if="initialPrompt" class="space-y-4">
+          <div v-if="completedSteps.includes(2)" class="space-y-4">
             <textarea
               v-model="initialPrompt"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
@@ -169,8 +170,9 @@
             
             <div class="flex justify-between">
               <button
-                @click="copyToClipboard(initialPrompt)"
-                class="px-3 py-1 text-blue-600 hover:text-blue-800 text-sm"
+                @click="copyToClipboard(initialPrompt || '')"
+                :disabled="!initialPrompt || initialPrompt.trim() === ''"
+                class="px-3 py-1 text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {{ copiedInitial ? '已复制!' : '复制' }}
               </button>
@@ -199,23 +201,25 @@
         </div>
         
         <div v-if="openStep === 3" class="p-4 border-t">
-          <div v-if="advice" class="space-y-2">
+          <div v-if="completedSteps.includes(3)" class="space-y-2">
             <div 
-              v-for="(_, index) in advice" 
+              v-for="(_, index) in Math.max((advice || []).length, 1)" 
               :key="index"
               class="flex items-start"
             >
               <span class="text-gray-500 mr-2">•</span>
               <input
-                v-model="advice[index]"
+                v-model="(advice || [])[index]"
+                @input="if (!advice) advice = []; advice[index] = ($event.target as HTMLInputElement)?.value || ''"
                 class="flex-1 px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             
             <div class="mt-4 flex justify-between">
               <button
-                @click="copyToClipboard(advice.join('\\n'))"
-                class="px-3 py-1 text-blue-600 hover:text-blue-800 text-sm"
+                @click="copyToClipboard((advice || []).join('\\n'))"
+                :disabled="!advice || advice.length === 0 || advice.every(a => !a || a.trim() === '')"
+                class="px-3 py-1 text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {{ copiedAdvice ? '已复制!' : '复制建议' }}
               </button>
@@ -256,7 +260,7 @@
         </div>
         
         <div v-if="openStep === 4" class="p-4 border-t">
-          <div v-if="finalPrompt" class="space-y-4">
+          <div v-if="completedSteps.includes(4)" class="space-y-4">
             <textarea
               v-model="finalPrompt"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
@@ -265,8 +269,9 @@
             
             <div class="flex justify-between">
               <button
-                @click="copyToClipboard(finalPrompt)"
-                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                @click="copyToClipboard(finalPrompt || '')"
+                :disabled="!finalPrompt || finalPrompt.trim() === ''"
+                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
                 {{ copiedFinal ? '已复制!' : '复制最终提示词' }}
               </button>
@@ -536,9 +541,10 @@ const handleApplyAdvice = async () => {
 
 // 添加关键指令
 const addThinkingPoint = () => {
-  if (thinkingPoints.value) {
-    thinkingPoints.value.push('')
+  if (!thinkingPoints.value) {
+    thinkingPoints.value = []
   }
+  thinkingPoints.value.push('')
 }
 
 // 使用对话结果
