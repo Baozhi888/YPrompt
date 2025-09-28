@@ -12,7 +12,6 @@
   <div
     v-if="settingsStore.showSettings"
     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-    @click.self="settingsStore.showSettings = false"
   >
     <div class="bg-white rounded-lg max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
       <!-- 头部 -->
