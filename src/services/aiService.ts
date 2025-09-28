@@ -1717,7 +1717,7 @@ export class AIService {
     
     let apiUrl = baseUrl.trim()
     
-    if (apiUrl.includes('/models')) {
+    if (apiUrl.endsWith('/models') || apiUrl.includes('/models?') || apiUrl.includes('/models/')) {
       // 已经是模型列表URL，直接使用
       return apiUrl
     } else if (apiUrl.includes('/v1')) {
