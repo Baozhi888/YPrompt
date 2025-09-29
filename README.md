@@ -35,6 +35,7 @@
 - **双模式操作**: 自动生成和手动步进两种执行模式
 - **格式语言转换**: 支持Markdown/XML格式切换和中英文互译
 - **响应式设计**: 完美适配桌面端和移动端设备
+- **支持内置提供商**: 将 `builtin-providers.example.json` 复制为 `builtin-providers.json` 并修改您需要的配置即可。
 
 ## 技术栈
 

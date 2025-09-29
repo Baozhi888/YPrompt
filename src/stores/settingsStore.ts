@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { promptConfigManager } from '@/config/prompts'
+import { getBuiltinProviders, convertBuiltinToProviderConfig } from '@/config/builtinProviders'
 
 export interface ModelConfig {
   id: string
@@ -60,6 +61,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const selectedProvider = ref<string>('')
   const selectedModel = ref<string>('')
   const streamMode = ref(true) // 默认开启流式模式
+  const deletedBuiltinProviders = ref<string[]>([]) // 记录被删除的内置提供商ID
 
   // 提示词编辑相关状态
   const showPromptEditor = ref(false)
@@ -76,8 +78,25 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 初始化默认配置
   const initializeDefaults = () => {
-    // 不再预设空的提供商配置，让用户主动添加
-    if (providers.value.length === 0) {
+    // 加载内置提供商配置
+    const builtinProviders = getBuiltinProviders()
+    if (builtinProviders.length > 0) {
+      console.log('🚀 加载内置提供商:', builtinProviders.length, '个')
+      const builtinProviderConfigs = builtinProviders.map(convertBuiltinToProviderConfig)
+      providers.value = [...builtinProviderConfigs]
+      
+      // 自动选择第一个可用的提供商和模型
+      const availableProviders = getAvailableProviders()
+      if (availableProviders.length > 0) {
+        selectedProvider.value = availableProviders[0].id
+        const availableModels = getAvailableModels(selectedProvider.value)
+        if (availableModels.length > 0) {
+          selectedModel.value = availableModels[0].id
+        }
+        console.log('🎯 初始化时自动选择提供商:', availableProviders[0].name, '模型:', availableModels[0]?.name)
+      }
+    } else {
+      // 如果没有内置提供商，保持空数组
       providers.value = []
     }
   }
@@ -123,6 +142,11 @@ export const useSettingsStore = defineStore('settings', () => {
       }
     }
     return templates[type]
+  }
+
+  // 检查是否为内置提供商
+  const isBuiltinProvider = (providerId: string) => {
+    return providerId.startsWith('builtin_')
   }
 
   // 获取可用的提供商
@@ -185,10 +209,14 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 保存设置到本地存储
   const saveSettings = () => {
-    localStorage.setItem('yprompt_providers', JSON.stringify(providers.value))
+    // 只保存用户自定义的提供商，不保存内置提供商
+    const userProviders = providers.value.filter(provider => !provider.id.startsWith('builtin_'))
+    localStorage.setItem('yprompt_providers', JSON.stringify(userProviders))
     localStorage.setItem('yprompt_selected_provider', selectedProvider.value)
     localStorage.setItem('yprompt_selected_model', selectedModel.value)
     localStorage.setItem('yprompt_stream_mode', JSON.stringify(streamMode.value))
+    // 保存被删除的内置提供商列表
+    localStorage.setItem('yprompt_deleted_builtin_providers', JSON.stringify(deletedBuiltinProviders.value))
   }
 
   // 从本地存储加载设置
@@ -197,24 +225,50 @@ export const useSettingsStore = defineStore('settings', () => {
     const savedProvider = localStorage.getItem('yprompt_selected_provider')
     const savedModel = localStorage.getItem('yprompt_selected_model')
     const savedStreamMode = localStorage.getItem('yprompt_stream_mode')
+    const savedDeletedBuiltinProviders = localStorage.getItem('yprompt_deleted_builtin_providers')
 
+    // 加载被删除的内置提供商列表
+    if (savedDeletedBuiltinProviders) {
+      try {
+        deletedBuiltinProviders.value = JSON.parse(savedDeletedBuiltinProviders)
+      } catch (error) {
+        deletedBuiltinProviders.value = []
+      }
+    }
+
+    // 首先加载内置提供商（排除被删除的）
+    const builtinProviders = getBuiltinProviders()
+    let allProviders: ProviderConfig[] = []
+    
+    if (builtinProviders.length > 0) {
+      console.log('🚀 加载内置提供商:', builtinProviders.length, '个')
+      const builtinProviderConfigs = builtinProviders
+        .map(convertBuiltinToProviderConfig)
+        .filter(provider => !deletedBuiltinProviders.value.includes(provider.id))
+      allProviders = [...builtinProviderConfigs]
+      
+      if (deletedBuiltinProviders.value.length > 0) {
+        console.log('🗑️ 跳过已删除的内置提供商:', deletedBuiltinProviders.value.length, '个')
+      }
+    }
+
+    // 合并用户自定义的提供商配置
     if (savedProviders) {
       try {
-        providers.value = JSON.parse(savedProviders)
+        const userProviders = JSON.parse(savedProviders)
+        if (Array.isArray(userProviders)) {
+          // 过滤掉与内置提供商ID冲突的用户配置
+          const nonBuiltinProviders = userProviders.filter((provider: ProviderConfig) => 
+            !provider.id.startsWith('builtin_')
+          )
+          allProviders = [...allProviders, ...nonBuiltinProviders]
+        }
       } catch (error) {
-        initializeDefaults()
+        console.warn('解析用户提供商配置失败:', error)
       }
-    } else {
-      initializeDefaults()
     }
 
-    if (savedProvider) {
-      selectedProvider.value = savedProvider
-    }
-
-    if (savedModel) {
-      selectedModel.value = savedModel
-    }
+    providers.value = allProviders
 
     if (savedStreamMode) {
       try {
@@ -224,15 +278,46 @@ export const useSettingsStore = defineStore('settings', () => {
       }
     }
 
-    // 如果没有选中的提供商，自动选择第一个可用的
-    if (!selectedProvider.value) {
-      const availableProviders = getAvailableProviders()
-      if (availableProviders.length > 0) {
-        selectedProvider.value = availableProviders[0].id
-        const availableModels = getAvailableModels(selectedProvider.value)
-        if (availableModels.length > 0) {
-          selectedModel.value = availableModels[0].id
+    // 验证并恢复保存的提供商和模型选择
+    const availableProviders = getAvailableProviders()
+    let validProviderSelected = false
+    let validModelSelected = false
+
+    if (savedProvider) {
+      // 检查保存的提供商是否仍然存在且可用
+      const savedProviderExists = availableProviders.find(p => p.id === savedProvider)
+      if (savedProviderExists) {
+        selectedProvider.value = savedProvider
+        validProviderSelected = true
+        
+        // 检查保存的模型是否仍然存在且可用
+        if (savedModel) {
+          const availableModels = getAvailableModels(savedProvider)
+          const savedModelExists = availableModels.find(m => m.id === savedModel)
+          if (savedModelExists) {
+            selectedModel.value = savedModel
+            validModelSelected = true
+          }
         }
+      }
+    }
+
+    // 自动选择逻辑
+    if (!validProviderSelected && availableProviders.length > 0) {
+      // 自动选择第一个可用的提供商
+      selectedProvider.value = availableProviders[0].id
+      console.log('🎯 自动选择提供商:', availableProviders[0].name)
+    }
+
+    if (selectedProvider.value && !validModelSelected) {
+      // 为当前提供商自动选择第一个可用模型
+      const availableModels = getAvailableModels(selectedProvider.value)
+      if (availableModels.length > 0) {
+        selectedModel.value = availableModels[0].id
+        console.log('🎯 自动选择模型:', availableModels[0].name)
+      } else {
+        console.warn('⚠️ 提供商没有可用模型，请检查配置')
+        selectedModel.value = '' // 清空无效的模型选择
       }
     }
   }
@@ -241,12 +326,36 @@ export const useSettingsStore = defineStore('settings', () => {
   const deleteProvider = (providerId: string) => {
     const index = providers.value.findIndex(p => p.id === providerId)
     if (index > -1) {
+      const provider = providers.value[index]
       providers.value.splice(index, 1)
+      
+      // 如果删除的是内置提供商，记录到删除列表中
+      if (providerId.startsWith('builtin_')) {
+        if (!deletedBuiltinProviders.value.includes(providerId)) {
+          deletedBuiltinProviders.value.push(providerId)
+        }
+        console.log('🗑️ 已永久删除内置提供商:', provider.name)
+      }
+      
       // 如果删除的是当前选中的提供商，重置选择
       if (selectedProvider.value === providerId) {
         selectedProvider.value = ''
         selectedModel.value = ''
+        
+        // 自动选择下一个可用的提供商
+        const availableProviders = getAvailableProviders()
+        if (availableProviders.length > 0) {
+          selectedProvider.value = availableProviders[0].id
+          const availableModels = getAvailableModels(selectedProvider.value)
+          if (availableModels.length > 0) {
+            selectedModel.value = availableModels[0].id
+          }
+          console.log('🎯 自动选择下一个提供商:', availableProviders[0].name)
+        }
       }
+      
+      // 立即保存设置，确保删除记录被持久化
+      saveSettings()
     }
   }
 
@@ -486,6 +595,23 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  // 恢复被删除的内置提供商
+  const restoreDeletedBuiltinProviders = () => {
+    if (deletedBuiltinProviders.value.length === 0) {
+      console.log('没有被删除的内置提供商需要恢复')
+      return
+    }
+
+    const restoredCount = deletedBuiltinProviders.value.length
+    deletedBuiltinProviders.value = []
+    saveSettings()
+    
+    // 重新加载设置以恢复内置提供商
+    loadSettings()
+    
+    console.log(`✅ 已恢复 ${restoredCount} 个被删除的内置提供商`)
+  }
+
 
   const getCurrentRequirementReportRules = () => {
     return promptConfigManager.getRequirementReportRules()
@@ -505,6 +631,7 @@ export const useSettingsStore = defineStore('settings', () => {
     selectedProvider,
     selectedModel,
     streamMode,
+    deletedBuiltinProviders,
     // 提示词编辑状态
     showPromptEditor,
     editingPromptType,
@@ -515,6 +642,7 @@ export const useSettingsStore = defineStore('settings', () => {
     // 原有方法
     initializeDefaults,
     getProviderTemplate,
+    isBuiltinProvider,
     getAvailableProviders,
     getAvailableModels,
     getCurrentProvider,
@@ -525,6 +653,7 @@ export const useSettingsStore = defineStore('settings', () => {
     deleteModel,
     saveSettings,
     loadSettings,
+    restoreDeletedBuiltinProviders,
     // 提示词编辑方法
     loadPromptRules,
     openPromptEditor,
