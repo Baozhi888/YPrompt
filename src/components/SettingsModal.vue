@@ -573,8 +573,28 @@
           />
           
           <!-- 可选择的模型列表 -->
-          <div v-if="getCurrentProviderModels.length > 0" class="mt-2">
+          <div v-if="(providerModelsCache[addingModelToProvider] || []).length > 0" class="mt-2">
             <p class="text-xs text-gray-600 mb-2">点击选择模型：</p>
+            
+            <!-- 模型筛选输入框 -->
+            <div class="mb-2">
+              <input
+                v-model="modelSearchKeyword"
+                type="text"
+                placeholder="🔍 输入关键词筛选模型... (支持多个关键词用空格分隔)"
+                class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
+              />
+            </div>
+            
+            <!-- 筛选结果提示 -->
+            <div v-if="modelSearchKeyword.trim() && getCurrentProviderModels.length === 0" class="text-xs text-gray-500 mb-2">
+              未找到包含 "{{ modelSearchKeyword }}" 的模型
+            </div>
+            <div v-else-if="modelSearchKeyword.trim()" class="text-xs text-gray-500 mb-2">
+              找到 {{ getCurrentProviderModels.length }} 个匹配的模型
+            </div>
+            
+            <!-- 模型列表 -->
             <div class="max-h-32 overflow-y-auto border border-gray-200 rounded">
               <div
                 v-for="modelId in getCurrentProviderModels"
@@ -582,7 +602,7 @@
                 @click="selectModel(modelId)"
                 class="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
               >
-                {{ modelId }}
+                <span class="font-mono">{{ modelId }}</span>
               </div>
             </div>
           </div>
@@ -612,7 +632,7 @@
 
       <div class="flex justify-end space-x-3 mt-6">
         <button
-          @click="showAddModelDialog = false"
+          @click="closeAddModelDialog"
           class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
         >
           取消
@@ -676,10 +696,25 @@ const newModel = ref({
 const loadingModels = ref(false)
 const providerModelsCache = ref<Record<string, string[]>>({}) // 按提供商ID缓存模型列表
 const modelFetchError = ref('')
+const modelSearchKeyword = ref('') // 模型筛选关键词
 
 // 获取当前提供商的模型列表
 const getCurrentProviderModels = computed(() => {
-  return providerModelsCache.value[addingModelToProvider.value] || []
+  const allModels = providerModelsCache.value[addingModelToProvider.value] || []
+  
+  // 如果没有搜索关键词，返回所有模型
+  if (!modelSearchKeyword.value.trim()) {
+    return allModels
+  }
+  
+  // 支持多个关键词搜索，用空格分隔
+  const keywords = modelSearchKeyword.value.toLowerCase().trim().split(/\s+/)
+  
+  return allModels.filter(modelId => {
+    const modelIdLower = modelId.toLowerCase()
+    // 所有关键词都要包含
+    return keywords.every(keyword => modelIdLower.includes(keyword))
+  })
 })
 
 // 可用的提供商类型
@@ -1026,6 +1061,15 @@ const addCustomModel = () => {
   settingsStore.saveSettings()
 }
 
+// 关闭添加模型弹窗
+const closeAddModelDialog = () => {
+  showAddModelDialog.value = false
+  modelSearchKeyword.value = '' // 清空搜索关键词
+  addingModelToProvider.value = ''
+  modelFetchError.value = ''
+  editingModel.value = null
+}
+
 // 显示添加模型弹窗
 const showAddModel = (providerId: string) => {
   editingModel.value = null
@@ -1034,6 +1078,7 @@ const showAddModel = (providerId: string) => {
   // 重置状态（但保留缓存的模型列表）
   loadingModels.value = false
   modelFetchError.value = ''
+  modelSearchKeyword.value = '' // 清空搜索关键词
   
   // 为提供商预设API类型
   const provider = getProviderForModel(providerId)
