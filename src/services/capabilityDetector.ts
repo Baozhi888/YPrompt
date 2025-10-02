@@ -470,8 +470,9 @@ export class CapabilityDetector {
 
   private isClaudeThinkingModel(modelId: string): boolean {
     const modelName = modelId.toLowerCase()
-    // Claude 3.5以上版本通常支持thinking标签
+    // Claude 3.5及以上版本支持thinking标签和多模态（图片+PDF文档最多100页）
     return modelName.includes('claude-3.5') || 
+           modelName.includes('claude-3.7') ||
            modelName.includes('claude-4') ||
            modelName.includes('sonnet') ||
            modelName.includes('opus')

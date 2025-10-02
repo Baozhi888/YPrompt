@@ -173,17 +173,31 @@ export class AIService {
         })
         
         if (att.type === 'image') {
-          // OpenAI主要支持图片格式
-          return {
-            type: 'image_url' as const,
-            image_url: {
-              url: `data:${att.mimeType};base64,${att.data}`
-            }
-          } as MessageContent
+          // OpenAI API 支持的图片格式：PNG, JPEG, WEBP, GIF (非动画)
+          const supportedImageTypes = [
+            'image/png',
+            'image/jpeg',
+            'image/jpg',
+            'image/webp',
+            'image/gif'
+          ]
+          
+          if (supportedImageTypes.includes(att.mimeType)) {
+            return {
+              type: 'image_url' as const,
+              image_url: {
+                url: `data:${att.mimeType};base64,${att.data}`
+              }
+            } as MessageContent
+          } else {
+            console.warn(`[AIService] OpenAI API does not support image format: ${att.mimeType}. Supported formats: PNG, JPEG, WEBP, GIF`)
+            return null
+          }
         }
         
-        // OpenAI目前主要支持图片，其他类型可以在这里扩展
-        console.warn(`[AIService] OpenAI currently mainly supports images. Skipping ${att.type}: ${att.mimeType}`)
+        // OpenAI API 当前仅支持图片格式，不支持文档、音频、视频
+        // 注意：ChatGPT网页版支持PDF、Word等，但API不支持
+        console.warn(`[AIService] OpenAI API only supports images (PNG, JPEG, WEBP, GIF). Skipping ${att.type}: ${att.mimeType}`)
         return null
       })
       .filter((item): item is MessageContent => item !== null)
@@ -202,7 +216,7 @@ export class AIService {
         })
         
         if (att.type === 'image') {
-          // Claude支持图片格式
+          // Claude 3.5+支持图片格式
           return {
             type: 'image' as const,
             source: {
@@ -212,22 +226,34 @@ export class AIService {
             }
           } as MessageContent
         } else if (att.type === 'document') {
-          // Claude支持某些文档格式，但需要特殊处理
-          // 目前Claude主要支持图片，文档内容可以作为文本传递
-          const supportedDocumentTypes = ['text/plain', 'text/markdown', 'application/json']
+          // Claude 3.5 Sonnet及以上版本支持PDF文档（最多100页）
+          const supportedDocumentTypes = [
+            'application/pdf',
+            'text/plain',
+            'text/markdown',
+            'application/json',
+            'text/html',
+            'text/csv'
+          ]
           
           if (supportedDocumentTypes.includes(att.mimeType)) {
-            // 对于文本文档，可以尝试解码并作为文本内容传递
-            // 注意：这里需要根据实际API能力调整
-            console.info(`[AIService] Anthropic document support limited. Consider converting ${att.mimeType} to text.`)
+            // 对于支持的文档类型，使用document格式传递
+            return {
+              type: 'image' as const,  // Claude API使用相同的格式结构
+              source: {
+                type: 'base64' as const,
+                media_type: att.mimeType,
+                data: att.data
+              }
+            } as MessageContent
           }
           
-          console.warn(`[AIService] Anthropic currently mainly supports images. Skipping document: ${att.mimeType}`)
+          console.warn(`[AIService] Anthropic document type not supported: ${att.mimeType}. Supported: PDF, TXT, MD, JSON, HTML, CSV`)
           return null
         }
         
-        // Claude目前主要支持图片，其他类型暂不支持
-        console.warn(`[AIService] Anthropic currently mainly supports images. Skipping ${att.type}: ${att.mimeType}`)
+        // Claude 3.5+主要支持图片和PDF文档，其他类型暂不支持
+        console.warn(`[AIService] Anthropic currently supports images and PDF documents. Skipping ${att.type}: ${att.mimeType}`)
         return null
       })
       .filter((item): item is MessageContent => item !== null)
@@ -477,7 +503,7 @@ export class AIService {
             modelSuggestion = '当前OpenAI模型主要支持图片格式。建议切换到支持更多文件类型的模型（如Gemini）'
             break
           case 'anthropic':
-            modelSuggestion = '当前Claude模型主要支持图片格式。建议切换到支持更多文件类型的模型（如Gemini）'
+            modelSuggestion = '当前Claude模型支持图片和PDF文档格式。建议切换到支持更多文件类型的模型（如Gemini），或使用支持的格式'
             break
           case 'google':
             modelSuggestion = '当前Gemini模型不支持此文件格式。建议使用支持的格式（图片、PDF、Office文档等）'
@@ -494,7 +520,7 @@ export class AIService {
           errorMessage.toLowerCase().includes('attachment') ||
           errorMessage.toLowerCase().includes('file') ||
           errorMessage.toLowerCase().includes('image')) {
-        return `当前模型不支持附件功能。请移除附件或切换到支持多模态的模型（如GPT-4 Vision、Claude 3或Gemini）。`
+        return `当前模型不支持附件功能。请移除附件或切换到支持多模态的模型（如GPT-4 Vision、Claude 3.5+或Gemini）。`
       }
       
       // 检查是否是模型不支持的错误

@@ -1030,7 +1030,8 @@ const generatePrompt = async (provider: any, modelId: string) => {
     const validMessages = promptStore.getValidMessages()
     const conversationHistory = validMessages.map(msg => ({
       type: msg.type,
-      content: msg.content
+      content: msg.content,
+      attachments: msg.attachments || []  // 保留附件信息
     }))
     
     // 步骤0: 生成需求报告

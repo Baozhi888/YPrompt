@@ -84,9 +84,17 @@ npm run format       # Prettier格式化
 - **notificationStore**: 用户通知管理
 
 ### 多模态能力检测 (capabilityDetector.ts)
-- OpenAI: 主要支持图片
-- Anthropic: 主要支持图片
-- Google Gemini: 支持图片/文档/音频/视频等全面多模态
+- **OpenAI**: 
+  - API支持：仅图片格式（PNG, JPEG, WEBP, GIF）- GPT-4 Vision/GPT-4o/GPT-4-Turbo
+  - ChatGPT网页版支持PDF/Word/Excel/PPT等，但API不支持
+- **Anthropic Claude**: 
+  - 支持图片（PNG, JPEG, WEBP, GIF）
+  - 支持PDF文档（Claude 3.5及更高版本，最多100页）
+- **Google Gemini**: 
+  - 图片：PNG, JPEG, WEBP, GIF, BMP, TIFF, SVG, HEIC
+  - 文档：PDF, TXT, Markdown, CSV, JSON, XML, HTML, CSS, JS, Office文档（Word/Excel/PowerPoint）
+  - 音频：WAV, MP3, AAC, OGG, FLAC
+  - 视频：MP4, MPEG, MOV, AVI, WebM等
 
 ## 开发注意事项
 

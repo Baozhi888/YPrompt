@@ -94,9 +94,20 @@
               <div class="mt-3 pt-3 border-t border-blue-200">
                 <h4 class="text-sm font-medium text-blue-800 mb-2">附件多模态支持</h4>
                 <div class="text-sm text-blue-700 space-y-1">
-                  <div><strong>OpenAI：</strong>支持图片（GPT-4 Vision及更高版本）</div>
-                  <div><strong>Anthropic Claude：</strong>支持图片（Claude 3系列）</div>
-                  <div><strong>Google Gemini：</strong>全面支持图片、文档（PDF/Office）、音频、视频等多模态</div>
+                  <div><strong>OpenAI：</strong>支持图片（GPT-4 Vision及更高版本）
+                    <div class="text-xs text-blue-600 ml-4">• API支持格式：PNG, JPEG, WEBP, GIF</div>
+                    <div class="text-xs text-blue-600 ml-4">• 注意：ChatGPT网页版支持PDF/Office文档，但API不支持</div>
+                  </div>
+                  <div><strong>Anthropic Claude：</strong>支持图片（Claude 3系列）
+                    <div class="text-xs text-blue-600 ml-4">• 图片格式：PNG, JPEG, WEBP, GIF</div>
+                    <div class="text-xs text-blue-600 ml-4">• PDF文档：Claude 3.5+（最多100页）</div>
+                  </div>
+                  <div><strong>Google Gemini：</strong>全面支持图片、文档（PDF/Office）、音频、视频等多模态
+                    <div class="text-xs text-blue-600 ml-4">• 图片：PNG, JPEG, WEBP, GIF, BMP, TIFF, SVG, HEIC</div>
+                    <div class="text-xs text-blue-600 ml-4">• 文档：PDF, Office(Word/Excel/PPT), TXT, Markdown, CSV等</div>
+                    <div class="text-xs text-blue-600 ml-4">• 音频：WAV, MP3, AAC, OGG, FLAC</div>
+                    <div class="text-xs text-blue-600 ml-4">• 视频：MP4, MOV, AVI, WebM等</div>
+                  </div>
                   <div class="text-xs text-blue-600 mt-2">💡 如需上传表格等文档，建议使用 Google Gemini 模型</div>
                 </div>
               </div>
