@@ -62,6 +62,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const selectedModel = ref<string>('')
   const streamMode = ref(true) // 默认开启流式模式
   const deletedBuiltinProviders = ref<string[]>([]) // 记录被删除的内置提供商ID
+  const useSlimRules = ref(false) // 是否使用精简版提示词规则，默认为false（使用完整版）
 
   // 提示词编辑相关状态
   const showPromptEditor = ref(false)
@@ -217,6 +218,8 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('yprompt_stream_mode', JSON.stringify(streamMode.value))
     // 保存被删除的内置提供商列表
     localStorage.setItem('yprompt_deleted_builtin_providers', JSON.stringify(deletedBuiltinProviders.value))
+    // 保存精简版规则开关
+    localStorage.setItem('yprompt_use_slim_rules', JSON.stringify(useSlimRules.value))
   }
 
   // 从本地存储加载设置
@@ -226,6 +229,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const savedModel = localStorage.getItem('yprompt_selected_model')
     const savedStreamMode = localStorage.getItem('yprompt_stream_mode')
     const savedDeletedBuiltinProviders = localStorage.getItem('yprompt_deleted_builtin_providers')
+    const savedUseSlimRules = localStorage.getItem('yprompt_use_slim_rules')
 
     // 加载被删除的内置提供商列表
     if (savedDeletedBuiltinProviders) {
@@ -275,6 +279,15 @@ export const useSettingsStore = defineStore('settings', () => {
         streamMode.value = JSON.parse(savedStreamMode)
       } catch (error) {
         streamMode.value = true // 默认开启流式模式
+      }
+    }
+
+    // 加载精简版规则开关
+    if (savedUseSlimRules) {
+      try {
+        useSlimRules.value = JSON.parse(savedUseSlimRules)
+      } catch (error) {
+        useSlimRules.value = false // 默认使用完整版
       }
     }
 
@@ -376,6 +389,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 加载所有提示词内容到编辑器
   const loadPromptRules = () => {
+    // 同步精简版开关状态到配置管理器
+    promptConfigManager.setUseSlimRules(useSlimRules.value)
     editingSystemRules.value = promptConfigManager.getSystemPromptRules()
     editingUserRules.value = promptConfigManager.getUserGuidedPromptRules()
     editingRequirementReportRules.value = promptConfigManager.getRequirementReportRules()
@@ -464,6 +479,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 获取当前的提示词规则
   const getCurrentSystemRules = () => {
+    // 同步精简版开关状态到配置管理器
+    promptConfigManager.setUseSlimRules(useSlimRules.value)
     return promptConfigManager.getSystemPromptRules()
   }
 
@@ -632,6 +649,7 @@ export const useSettingsStore = defineStore('settings', () => {
     selectedModel,
     streamMode,
     deletedBuiltinProviders,
+    useSlimRules,
     // 提示词编辑状态
     showPromptEditor,
     editingPromptType,

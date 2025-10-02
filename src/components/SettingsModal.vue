@@ -90,6 +90,16 @@
                 <div><strong>自定义提供商：</strong>大多数第三方服务使用OpenAI兼容格式，URL结构为 <code class="bg-blue-100 px-1 rounded break-all text-xs">https://你的域名/v1/chat/completions</code></div>
                 <div class="text-xs text-blue-600 mt-2">支持代理地址、中转API等各种自定义URL</div>
               </div>
+              
+              <div class="mt-3 pt-3 border-t border-blue-200">
+                <h4 class="text-sm font-medium text-blue-800 mb-2">附件多模态支持</h4>
+                <div class="text-sm text-blue-700 space-y-1">
+                  <div><strong>OpenAI：</strong>支持图片（GPT-4 Vision及更高版本）</div>
+                  <div><strong>Anthropic Claude：</strong>支持图片（Claude 3系列）</div>
+                  <div><strong>Google Gemini：</strong>全面支持图片、文档（PDF/Office）、音频、视频等多模态</div>
+                  <div class="text-xs text-blue-600 mt-2">💡 如需上传表格等文档，建议使用 Google Gemini 模型</div>
+                </div>
+              </div>
             </div>
 
             <!-- 空状态 -->
@@ -119,6 +129,19 @@
                       {{ provider.type }}
                     </span>
                     <CheckCircle v-if="provider.enabled && provider.apiKey" class="w-4 h-4 text-green-600" title="已配置" />
+                    
+                    <!-- 批量测试进度显示 -->
+                    <div v-if="batchTestingStates[provider.id]?.isTesting" class="flex items-center space-x-2 text-sm">
+                      <span class="text-blue-600">
+                        {{ batchTestingStates[provider.id].isAborted ? '已停止测试' : `测试中 ${batchTestingStates[provider.id].currentModelIndex}/${batchTestingStates[provider.id].totalModels}` }}
+                      </span>
+                      <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          class="h-full bg-blue-500 transition-all duration-300"
+                          :style="{ width: `${(batchTestingStates[provider.id].currentModelIndex / batchTestingStates[provider.id].totalModels) * 100}%` }"
+                        ></div>
+                      </div>
+                    </div>
                   </div>
                   <div class="flex items-center space-x-2">
                     <button
@@ -129,12 +152,13 @@
                       <Settings class="w-4 h-4" />
                     </button>
                     <button
-                      @click="testConnection(provider)"
-                      :disabled="testingProvider === provider.id || !provider.apiKey"
+                      @click="batchTestModels(provider)"
+                      :disabled="!provider.apiKey || provider.models.length === 0"
                       class="text-green-500 hover:text-green-700 disabled:opacity-50 transition-colors"
-                      :title="testingProvider === provider.id ? '测试中...' : '测试连接'"
+                      :title="getBatchTestButtonTitle(provider)"
                     >
-                      <Zap class="w-4 h-4" :class="{ 'animate-pulse': testingProvider === provider.id }" />
+                      <Square v-if="batchTestingStates[provider.id]?.isTesting" class="w-4 h-4" :class="{ 'animate-pulse': testingProvider === provider.id }" />
+                      <Zap v-else class="w-4 h-4" />
                     </button>
                     <button
                       @click="deleteProvider(provider.id)"
@@ -230,18 +254,19 @@
                       <div class="flex items-center space-x-1 flex-shrink-0">
                         <!-- 模型级别测试按钮 -->
                         <button
-                          @click="testModel(provider.id, model.id)"
-                          :disabled="model.testStatus === 'testing' || !provider.apiKey"
+                          @click="handleModelTestClick(provider.id, model.id, model.testStatus)"
+                          :disabled="!provider.apiKey"
                           :class="[
                             'transition-colors text-sm',
-                            model.testStatus === 'testing' ? 'text-blue-600' : 
+                            model.testStatus === 'testing' ? 'text-blue-600 hover:text-blue-800' : 
                             model.testStatus === 'success' ? 'text-green-500 hover:text-green-700' :
                             model.testStatus === 'failed' ? 'text-red-500 hover:text-red-700' :
                             'text-gray-400 hover:text-blue-500'
                           ]"
                           :title="getTestButtonTitle(model)"
                         >
-                          <Zap class="w-3 h-3" :class="{ 'animate-pulse': model.testStatus === 'testing' }" />
+                          <Square v-if="model.testStatus === 'testing'" class="w-3 h-3 animate-pulse" />
+                          <Zap v-else class="w-3 h-3" />
                         </button>
                         <button
                           @click="editModel(provider.id, model)"
@@ -259,13 +284,6 @@
                         </button>
                       </div>
                       
-                      <!-- 错误信息 - 只在有错误时显示，占满宽度 -->
-                      <div v-if="model.capabilities?.testResult?.error" class="absolute left-0 right-0 top-full mt-1 z-10">
-                        <div class="text-xs text-red-500 bg-red-50 border border-red-200 rounded px-2 py-1 truncate" 
-                             :title="model.capabilities.testResult.error">
-                          {{ model.capabilities.testResult.error }}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -281,12 +299,26 @@
             <div>
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-lg font-medium">系统提示词规则</h3>
-                <button
-                  @click="resetSystemPromptRules"
-                  class="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-300 rounded"
-                >
-                  重置为默认
-                </button>
+                <div class="flex items-center space-x-3">
+                  <label class="flex items-center space-x-2 cursor-pointer">
+                    <span class="text-sm text-gray-600">精简版</span>
+                    <div class="relative">
+                      <input 
+                        type="checkbox" 
+                        v-model="settingsStore.useSlimRules"
+                        @change="handleSlimRulesToggle"
+                        class="sr-only peer"
+                      >
+                      <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </div>
+                  </label>
+                  <button
+                    @click="resetSystemPromptRules"
+                    class="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-300 rounded"
+                  >
+                    重置为默认
+                  </button>
+                </div>
               </div>
               <textarea
                 v-model="settingsStore.editingSystemRules"
@@ -654,7 +686,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { AIService } from '@/services/aiService'
-import { Settings, X, Plus, Trash2, CheckCircle, Zap } from 'lucide-vue-next'
+import { Settings, X, Plus, Trash2, CheckCircle, Zap, Square } from 'lucide-vue-next'
 
 const settingsStore = useSettingsStore()
 const notificationStore = useNotificationStore()
@@ -679,6 +711,15 @@ const addingModelToProvider = ref<string>('')
 const editingModel = ref<any>(null)
 const editingProvider = ref<any>(null) // 正在编辑的提供商
 const selectedProviderType = ref<'openai' | 'anthropic' | 'google' | 'custom'>('custom')
+
+// 批量测试相关状态
+const batchTestingStates = ref<Record<string, {
+  isTesting: boolean
+  currentModelIndex: number
+  totalModels: number
+  isAborted: boolean
+}>>({})
+const batchAbortControllers = ref<Record<string, AbortController>>({})
 
 const newProvider = ref({
   name: '',
@@ -878,32 +919,34 @@ const deleteModel = (providerId: string, modelId: string) => {
   }
 }
 
-// 测试连接
-const testConnection = async (provider: any) => {
-  if (!provider.apiKey) {
-    notificationStore.warning('请先配置API密钥')
-    return
-  }
 
-  const firstModel = provider.models.find((m: any) => m.enabled)
-  if (!firstModel) {
-    notificationStore.warning('请先启用至少一个模型')
-    return
+// 处理模型测试按钮点击
+const handleModelTestClick = async (providerId: string, modelId: string, testStatus: string | undefined) => {
+  if (testStatus === 'testing') {
+    // 如果正在测试，停止测试
+    stopModelTest(providerId, modelId)
+  } else {
+    // 开始测试
+    testModel(providerId, modelId)
   }
+}
 
-  testingProvider.value = provider.id
-  try {
-    const success = await aiService.testConnection(provider, firstModel.id)
-    if (success) {
-      notificationStore.success('连接测试成功！')
-    } else {
-      notificationStore.error('连接测试失败，请检查配置')
-    }
-  } catch (error) {
-    notificationStore.error(`连接测试失败: ${error}`)
-  } finally {
-    testingProvider.value = null
+// 正在进行的测试控制器
+const activeTestControllers = new Map<string, AbortController>()
+
+// 停止单个模型测试
+const stopModelTest = (providerId: string, modelId: string) => {
+  const key = `${providerId}:${modelId}`
+  const controller = activeTestControllers.get(key)
+  
+  if (controller) {
+    controller.abort()
+    activeTestControllers.delete(key)
   }
+  
+  settingsStore.updateModelTestStatus(providerId, modelId, 'untested')
+  notificationStore.warning(`已停止模型 ${modelId} 的测试`)
+  settingsStore.saveSettings()
 }
 
 // 模型级别测试
@@ -918,6 +961,11 @@ const testModel = async (providerId: string, modelId: string) => {
     notificationStore.warning('请先配置API密钥')
     return
   }
+
+  // 创建中止控制器
+  const abortController = new AbortController()
+  const key = `${providerId}:${modelId}`
+  activeTestControllers.set(key, abortController)
 
   // 1. 手动清空之前的状态
   const model = provider.models.find(m => m.id === modelId)
@@ -940,12 +988,19 @@ const testModel = async (providerId: string, modelId: string) => {
       modelId,
       // 连接结果回调（快速响应，立即显示✅）
       (connected: boolean, responseTime: number, error?: string) => {
+        // 检查是否已被中止
+        if (abortController.signal.aborted) {
+          return
+        }
+        
         if (connected) {
-          // 立即更新连接状态，显示✅指示器
+          // 立即更新连接状态和测试状态
           settingsStore.updateModelConnectionStatus(providerId, modelId, true)
+          settingsStore.updateModelTestStatus(providerId, modelId, 'success')
           notificationStore.success(`模型 ${modelId} 连接成功！(${responseTime}ms) 正在后台检测思考能力...`)
         } else {
           settingsStore.updateModelConnectionStatus(providerId, modelId, false, error)
+          settingsStore.updateModelTestStatus(providerId, modelId, 'failed')
           notificationStore.error(`模型 ${modelId} 连接失败：${error || '未知错误'}`)
         }
         // 保存设置（连接状态）
@@ -953,6 +1008,11 @@ const testModel = async (providerId: string, modelId: string) => {
       },
       // 思考能力结果回调（异步更新，可能会额外显示🧠）
       (capabilities) => {
+        // 检查是否已被中止
+        if (abortController.signal.aborted) {
+          return
+        }
+        
         settingsStore.updateModelCapabilities(providerId, modelId, capabilities)
         
         if (capabilities.reasoning) {
@@ -962,14 +1022,26 @@ const testModel = async (providerId: string, modelId: string) => {
         
         // 保存设置（最终结果）
         settingsStore.saveSettings()
+        
+        // 清理控制器
+        activeTestControllers.delete(key)
       },
-      true // 强制刷新缓存，因为用户主动点击测试
+      true, // 强制刷新缓存，因为用户主动点击测试
+      abortController // 传递中止控制器
     )
     
   } catch (error) {
+    // 如果是中止错误，不显示错误消息
+    if (error instanceof Error && error.name === 'AbortError') {
+      return
+    }
+    
     settingsStore.updateModelTestStatus(providerId, modelId, 'failed')
     notificationStore.error(`模型 ${modelId} 测试出错：${(error as Error).message}`)
     settingsStore.saveSettings()
+  } finally {
+    // 确保清理控制器
+    activeTestControllers.delete(key)
   }
 }
 
@@ -977,13 +1049,206 @@ const testModel = async (providerId: string, modelId: string) => {
 const getTestButtonTitle = (model: any) => {
   switch (model.testStatus) {
     case 'testing':
-      return '测试中...'
+      return '点击停止测试'
     case 'success':
       return '重新测试'
     case 'failed':
       return '重新测试'
     default:
       return '测试模型连接和能力'
+  }
+}
+
+// 获取批量测试按钮提示文本
+const getBatchTestButtonTitle = (provider: any) => {
+  const state = batchTestingStates.value[provider.id]
+  if (state?.isTesting && !state.isAborted) {
+    return `批量测试中... (${state.currentModelIndex}/${state.totalModels}) 点击中断`
+  } else if (state?.isTesting && state.isAborted) {
+    return '正在中断测试...'
+  } else if (provider.models.length === 0) {
+    return '没有可测试的模型'
+  }
+  return '批量测试模型'
+}
+
+// 批量测试模型
+const batchTestModels = async (provider: any) => {
+  const providerId = provider.id
+  const state = batchTestingStates.value[providerId]
+  
+  // 如果正在测试，则中断测试
+  if (state?.isTesting) {
+    abortBatchTest(providerId)
+    return
+  }
+  
+  if (!provider.apiKey) {
+    notificationStore.warning('请先配置API密钥')
+    return
+  }
+
+  const enabledModels = provider.models.filter((m: any) => m.enabled)
+  if (enabledModels.length === 0) {
+    notificationStore.warning('请先启用至少一个模型')
+    return
+  }
+
+  // 初始化批量测试状态
+  batchTestingStates.value[providerId] = {
+    isTesting: true,
+    currentModelIndex: 0,
+    totalModels: enabledModels.length,
+    isAborted: false
+  }
+  
+  // 创建中断控制器
+  batchAbortControllers.value[providerId] = new AbortController()
+  
+  testingProvider.value = providerId
+  
+  let successCount = 0
+  let failCount = 0
+  
+  try {
+    notificationStore.success(`开始批量测试 ${enabledModels.length} 个模型...`)
+    
+    for (let i = 0; i < enabledModels.length; i++) {
+      const currentState = batchTestingStates.value[providerId]
+      if (currentState?.isAborted) {
+        notificationStore.warning('批量测试已中断')
+        break
+      }
+      
+      const model = enabledModels[i]
+      
+      // 更新当前测试进度
+      batchTestingStates.value[providerId].currentModelIndex = i + 1
+      
+      try {
+        // 检查是否被中断
+        if (batchAbortControllers.value[providerId]?.signal.aborted) {
+          break
+        }
+        
+        // 手动清空之前的状态
+        model.testStatus = 'untested'
+        model.capabilities = undefined
+        model.lastTested = undefined
+        
+        // 设置测试中状态
+        settingsStore.updateModelTestStatus(providerId, model.id, 'testing')
+        
+        const { CapabilityDetector } = await import('@/services/capabilityDetector')
+        const detector = CapabilityDetector.getInstance()
+        
+        // 使用优化的检测方法：快速连接 + 异步思考
+        await detector.detectCapabilitiesWithCallback(
+          provider, 
+          model.id,
+          // 连接结果回调
+          (connected: boolean, _responseTime: number, error?: string) => {
+            if (connected) {
+              settingsStore.updateModelConnectionStatus(providerId, model.id, true)
+              settingsStore.updateModelTestStatus(providerId, model.id, 'success')
+              successCount++
+            } else {
+              settingsStore.updateModelConnectionStatus(providerId, model.id, false, error)
+              settingsStore.updateModelTestStatus(providerId, model.id, 'failed')
+              failCount++
+            }
+            settingsStore.saveSettings()
+          },
+          // 思考能力结果回调
+          (capabilities) => {
+            settingsStore.updateModelCapabilities(providerId, model.id, capabilities)
+            settingsStore.saveSettings()
+          },
+          true, // 强制刷新缓存
+          batchAbortControllers.value[providerId] // 传递中断控制器
+        )
+        
+        // 检查是否被中断
+        if (batchAbortControllers.value[providerId]?.signal.aborted) {
+          break
+        }
+        
+      } catch (error) {
+        settingsStore.updateModelTestStatus(providerId, model.id, 'failed')
+        failCount++
+        settingsStore.saveSettings()
+      }
+    }
+    
+    const currentState = batchTestingStates.value[providerId]
+    if (!currentState?.isAborted) {
+      notificationStore.success(`批量测试完成！成功: ${successCount}, 失败: ${failCount}`)
+    }
+    
+  } catch (error) {
+    notificationStore.error(`批量测试出错：${(error as Error).message}`)
+  } finally {
+    // 重置所有模型的测试状态（防止卡在testing状态）
+    const provider = settingsStore.providers.find(p => p.id === providerId)
+    if (provider) {
+      provider.models.forEach(model => {
+        if (model.testStatus === 'testing') {
+          // 如果有连接结果，使用连接结果；否则标记为未测试
+          if (model.capabilities?.testResult?.connected !== undefined) {
+            model.testStatus = model.capabilities.testResult.connected ? 'success' : 'failed'
+          } else {
+            model.testStatus = 'untested'
+          }
+        }
+      })
+      settingsStore.saveSettings()
+    }
+    
+    // 清理状态
+    delete batchTestingStates.value[providerId]
+    delete batchAbortControllers.value[providerId]
+    if (testingProvider.value === providerId) {
+      testingProvider.value = null
+    }
+  }
+}
+
+// 中断批量测试
+const abortBatchTest = (providerId: string) => {
+  const state = batchTestingStates.value[providerId]
+  if (state?.isTesting) {
+    // 标记为中断状态
+    state.isAborted = true
+    
+    // 触发中断信号
+    batchAbortControllers.value[providerId]?.abort()
+    
+    notificationStore.warning('正在中断批量测试...')
+    
+    // 2秒后自动清理状态，让"已停止测试"消息短暂显示
+    setTimeout(() => {
+      // 重置所有模型的测试状态（防止卡在testing状态）
+      const provider = settingsStore.providers.find(p => p.id === providerId)
+      if (provider) {
+        provider.models.forEach(model => {
+          if (model.testStatus === 'testing') {
+            // 如果有连接结果，使用连接结果；否则标记为未测试
+            if (model.capabilities?.testResult?.connected !== undefined) {
+              model.testStatus = model.capabilities.testResult.connected ? 'success' : 'failed'
+            } else {
+              model.testStatus = 'untested'
+            }
+          }
+        })
+        settingsStore.saveSettings()
+      }
+      
+      delete batchTestingStates.value[providerId]
+      delete batchAbortControllers.value[providerId]
+      if (testingProvider.value === providerId) {
+        testingProvider.value = null
+      }
+    }, 2000)
   }
 }
 
@@ -1187,6 +1452,13 @@ const resetOptimizationApplicationPrompt = () => {
   }
 }
 
+
+const handleSlimRulesToggle = () => {
+  // 切换精简版开关时，重新加载提示词规则
+  settingsStore.loadPromptRules()
+  // 保存设置
+  settingsStore.saveSettings()
+}
 
 const saveAndClose = () => {
   // 保存提示词规则（如果有修改的话）

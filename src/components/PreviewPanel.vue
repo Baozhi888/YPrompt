@@ -123,6 +123,7 @@
         </div>
         <div class="p-3 bg-white flex-1 flex flex-col overflow-hidden">
           <textarea
+            ref="reportScrollContainer"
             v-model="promptStore.promptData.requirementReport"
             :placeholder="hasConversationData ? '基于对话生成的需求描述...' : '请直接描述您的需求，例如：我需要一个专业的代码审查助手，能够分析代码质量、发现潜在问题并提供改进建议...'"
             class="w-full flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-300 focus:ring-0 resize-none"
@@ -180,7 +181,7 @@
             </button>
           </div>
         </div>
-        <div class="bg-white flex flex-col" :class="isMobile ? 'flex-1 min-h-0' : 'p-3 flex-1'">          <div class="space-y-2 overflow-y-auto flex-1" :class="isMobile ? 'p-3' : ''" :style="isMobile ? '' : 'max-height: calc(100vh - 400px);'">
+        <div class="bg-white flex flex-col" :class="isMobile ? 'flex-1 min-h-0' : 'p-3 flex-1'">          <div ref="thinkingScrollContainer" class="space-y-2 overflow-y-auto flex-1" :class="isMobile ? 'p-3' : ''" :style="isMobile ? '' : 'max-height: calc(100vh - 400px);'">
             <div 
               v-for="(_, index) in promptStore.promptData.thinkingPoints" 
               :key="index"
@@ -250,6 +251,7 @@
         </div>
         <div class="p-3 bg-white flex-1 flex flex-col overflow-hidden">
           <textarea
+            ref="initialScrollContainer"
             v-model="promptStore.promptData.initialPrompt"
             class="w-full flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
           ></textarea>
@@ -292,7 +294,7 @@
           </div>
         </div>
         <div class="bg-white flex flex-col" :class="isMobile ? 'flex-1 min-h-0' : 'p-3 flex-1'">
-          <div class="space-y-2 overflow-y-auto flex-1" :class="isMobile ? 'p-3' : ''" :style="isMobile ? '' : 'max-height: calc(100vh - 400px);'">
+          <div ref="adviceScrollContainer" class="space-y-2 overflow-y-auto flex-1" :class="isMobile ? 'p-3' : ''" :style="isMobile ? '' : 'max-height: calc(100vh - 400px);'">
             <div 
               v-for="(_, index) in promptStore.promptData.advice" 
               :key="index"
@@ -362,6 +364,7 @@
         </div>
         <div class="p-3 bg-white flex-1 flex flex-col overflow-hidden">
           <textarea
+            ref="finalScrollContainer"
             v-model="currentGeneratedPrompt"
             class="w-full flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
           ></textarea>
@@ -447,6 +450,13 @@ const initialTab = ref<HTMLButtonElement>()
 const adviceTab = ref<HTMLButtonElement>()
 const zhTab = ref<HTMLButtonElement>()
 
+// 滚动容器 refs - 用于自动滚动
+const reportScrollContainer = ref<HTMLElement>()
+const thinkingScrollContainer = ref<HTMLElement>()
+const initialScrollContainer = ref<HTMLElement>()
+const adviceScrollContainer = ref<HTMLElement>()
+const finalScrollContainer = ref<HTMLElement>()
+
 // 跟踪最新生成的内容
 const newContentTabs = ref<Set<string>>(new Set())
 
@@ -512,11 +522,44 @@ const scrollToActiveTab = (tabName: string) => {
   }
 }
 
+// 滚动到内容容器底部
+const scrollToBottomOfContent = () => {
+  nextTick(() => {
+    let scrollContainer: HTMLElement | undefined
+    
+    // 根据当前活动标签页找到对应的滚动容器
+    switch (activeTab.value) {
+      case 'report':
+        scrollContainer = reportScrollContainer.value
+        break
+      case 'thinking':
+        scrollContainer = thinkingScrollContainer.value
+        break
+      case 'initial':
+        scrollContainer = initialScrollContainer.value
+        break
+      case 'advice':
+        scrollContainer = adviceScrollContainer.value
+        break
+      case 'zh':
+        scrollContainer = finalScrollContainer.value
+        break
+    }
+    
+    // 如果找到滚动容器，滚动到底部
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollContainer.scrollHeight
+    }
+  })
+}
+
 // 自动切换标签页并滚动（用于流式更新时）
 const switchToTabWithScroll = (tab: string) => {
   activeTab.value = tab as any
   nextTick(() => {
     scrollToActiveTab(tab)
+    // 切换标签页后也滚动到内容底部
+    scrollToBottomOfContent()
   })
 }
 
@@ -606,6 +649,9 @@ const isConvertingLanguage = ref(false)  // 语言转换loading
 // 执行模式管理 - isAutoMode 现在在 promptStore 中管理
 const isExecuting = ref(false)
 
+// 中断控制器
+const abortController = ref<AbortController | null>(null)
+
 // 格式和语言状态管理
 const formatState = ref<'markdown' | 'xml'>('markdown')  // 当前格式状态
 const languageState = ref<'zh' | 'en'>('zh')  // 当前语言状态
@@ -651,6 +697,7 @@ const executeFullWorkflow = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     const provider = settingsStore.getCurrentProvider()
     const model = settingsStore.getCurrentModel()
     
@@ -678,7 +725,11 @@ const executeFullWorkflow = async () => {
       }
       
       const points = step1Content.split('\n').map(s => s.replace(/^[*-]\s*/, '').trim()).filter(Boolean)
-      if (points.length > 0) promptStore.promptData.thinkingPoints = points
+      if (points.length > 0) {
+        promptStore.promptData.thinkingPoints = points
+        // 流式更新时自动滚动到底部
+        scrollToBottomOfContent()
+      }
     }
     
     const thinkingPoints = await promptGeneratorService.getSystemPromptThinkingPoints(
@@ -709,6 +760,8 @@ const executeFullWorkflow = async () => {
         } else {
           promptStore.promptData.initialPrompt += chunk
         }
+        // 流式更新时自动滚动到底部
+        scrollToBottomOfContent()
       }
     }
     
@@ -738,7 +791,11 @@ const executeFullWorkflow = async () => {
       }
       
       const adviceList = step3Content.split('\n').map(s => s.replace(/^[*-]\s*/, '').trim()).filter(Boolean)
-      if (adviceList.length > 0) promptStore.promptData.advice = adviceList
+      if (adviceList.length > 0) {
+        promptStore.promptData.advice = adviceList
+        // 流式更新时自动滚动到底部
+        scrollToBottomOfContent()
+      }
     }
     
     const advice = await promptGeneratorService.getOptimizationAdvice(
@@ -770,6 +827,8 @@ const executeFullWorkflow = async () => {
         } else {
           promptStore.promptData.generatedPrompt += chunk
         }
+        // 流式更新时自动滚动到底部
+        scrollToBottomOfContent()
       }
     }
     
@@ -803,6 +862,7 @@ const executeFullWorkflow = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -815,6 +875,7 @@ const executeThinkingPoints = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'thinking'
     
     const provider = settingsStore.getCurrentProvider()
@@ -852,6 +913,8 @@ const executeThinkingPoints = async () => {
       
       if (points.length > 0) {
         promptStore.promptData.thinkingPoints = points
+        // 流式更新时自动滚动到底部
+        scrollToBottomOfContent()
       }
     }
     
@@ -872,6 +935,7 @@ const executeThinkingPoints = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -884,6 +948,7 @@ const executeInitialPrompt = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'initial'
     
     const provider = settingsStore.getCurrentProvider()
@@ -937,6 +1002,7 @@ const executeInitialPrompt = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -949,6 +1015,7 @@ const executeAdvice = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'advice'
     
     const provider = settingsStore.getCurrentProvider()
@@ -1006,6 +1073,7 @@ const executeAdvice = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -1018,6 +1086,7 @@ const executeFinalPrompt = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'final'
     
     const provider = settingsStore.getCurrentProvider()
@@ -1082,6 +1151,7 @@ const executeFinalPrompt = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -1282,6 +1352,7 @@ const regenerateRequirementReport = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -1294,6 +1365,7 @@ const regenerateThinkingPoints = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'thinking'
     
     const provider = settingsStore.getCurrentProvider()
@@ -1350,6 +1422,7 @@ const regenerateThinkingPoints = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -1362,6 +1435,7 @@ const regenerateInitialPrompt = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'initial'
     
     const provider = settingsStore.getCurrentProvider()
@@ -1415,6 +1489,7 @@ const regenerateInitialPrompt = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -1427,6 +1502,7 @@ const regenerateAdvice = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'advice'
     
     const provider = settingsStore.getCurrentProvider()
@@ -1484,6 +1560,7 @@ const regenerateAdvice = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 
@@ -1496,6 +1573,7 @@ const regenerateFinalPrompt = async () => {
   
   try {
     isExecuting.value = true
+    abortController.value = new AbortController()
     promptStore.currentExecutionStep = 'final'
     
     const provider = settingsStore.getCurrentProvider()
@@ -1561,6 +1639,7 @@ const regenerateFinalPrompt = async () => {
   } finally {
     isExecuting.value = false
     promptStore.currentExecutionStep = null
+    abortController.value = null
   }
 }
 

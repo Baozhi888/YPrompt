@@ -398,7 +398,11 @@
       </div>
       
       <!-- 输入框容器 - 真正的分区设计 -->
-      <div class="relative border border-gray-300 rounded-2xl focus-within:outline-none focus-within:border-gray-300 overflow-hidden" style="height: 120px;">
+      <div 
+        v-show="!props.isMobile || !isEditing"
+        class="relative border border-gray-300 rounded-2xl focus-within:outline-none focus-within:border-gray-300 overflow-hidden" 
+        style="height: 120px;"
+      >
         <!-- 文字输入区域容器 - 固定高度，为按钮预留空间 -->
         <div class="absolute top-0 left-0 right-0" style="bottom: 48px;">
           <textarea
@@ -514,6 +518,7 @@ const isGlobalDragging = ref(false)
 // 编辑相关状态
 const editingContent = ref<Record<string, string>>({})
 const editTextareaRefs = ref<Record<string, HTMLTextAreaElement | null>>({})
+const isEditing = computed(() => Object.keys(editingContent.value).length > 0)
 
 // 流式模式状态
 const isStreamMode = ref(true) // 默认开启流式模式
@@ -542,7 +547,10 @@ const quickReplies = computed(() => {
   
   // 如果对话轮数大于等于6（表示至少3轮用户输入），添加强制触发选项
   if (messageCount >= 6) {
-    return [...baseReplies, '强制生成需求报告']
+    // 根据是否已生成过需求报告来显示不同的文案
+    const hasReport = !!promptStore.promptData.requirementReport
+    const actionText = hasReport ? '重新生成需求报告' : '强制生成需求报告'
+    return [...baseReplies, actionText]
   }
   
   return baseReplies
@@ -550,7 +558,7 @@ const quickReplies = computed(() => {
 
 // 检查是否为强制触发关键词
 const checkForceGenerate = (userInput: string): boolean => {
-  const forceKeywords = ['强制生成需求报告']
+  const forceKeywords = ['强制生成需求报告', '重新生成需求报告']
   return forceKeywords.some(keyword => userInput.includes(keyword))
 }
 
@@ -819,6 +827,9 @@ const sendMessage = async () => {
     return
   }
 
+  // 清除之前的进度消息，准备重新开始对话
+  promptStore.clearProgressMessages()
+
   const currentInput = userInput.value
   const attachments = [...currentAttachments.value]
   
@@ -1057,12 +1068,24 @@ const generatePrompt = async (provider: any, modelId: string) => {
       // 步骤1: 获取关键指令
       promptStore.currentExecutionStep = 'thinking'
       promptStore.addOrUpdateProgressMessage('🔄 步骤 1/4: 正在分析需求并生成关键指令...', 'progress')
+      
+      // 设置流式回调 - 步骤1
+      let step1Content = ''
+      const onStep1Update = (chunk: string) => {
+        step1Content += chunk
+        const points = step1Content.split('\n').map(s => s.replace(/^[*-]\s*/, '').trim()).filter(Boolean)
+        if (points.length > 0) {
+          promptStore.promptData.thinkingPoints = points
+        }
+      }
+      
       const thinkingPoints = await promptGeneratorService.getSystemPromptThinkingPoints(
         requirementReport,
         modelId,
         'zh',
         [],
-        provider
+        provider,
+        onStep1Update
       )
       
       promptStore.promptData.thinkingPoints = thinkingPoints
@@ -1070,13 +1093,21 @@ const generatePrompt = async (provider: any, modelId: string) => {
       // 步骤2: 生成初始提示词
       promptStore.currentExecutionStep = 'initial'
       promptStore.addOrUpdateProgressMessage('🔄 步骤 2/4: 正在基于关键指令生成初始提示词...', 'progress')
+      
+      // 设置流式回调 - 步骤2
+      promptStore.promptData.initialPrompt = ''
+      const onStep2Update = (chunk: string) => {
+        promptStore.promptData.initialPrompt += chunk
+      }
+      
       const initialPrompt = await promptGeneratorService.generateSystemPrompt(
         requirementReport,
         modelId,
         'zh',
         [],
         thinkingPoints,
-        provider
+        provider,
+        onStep2Update
       )
       
       promptStore.promptData.initialPrompt = initialPrompt
@@ -1084,13 +1115,25 @@ const generatePrompt = async (provider: any, modelId: string) => {
       // 步骤3: 获取优化建议
       promptStore.currentExecutionStep = 'advice'
       promptStore.addOrUpdateProgressMessage('🔄 步骤 3/4: 正在分析提示词并生成优化建议...', 'progress')
+      
+      // 设置流式回调 - 步骤3
+      let step3Content = ''
+      const onStep3Update = (chunk: string) => {
+        step3Content += chunk
+        const adviceList = step3Content.split('\n').map(s => s.replace(/^[*-]\s*/, '').trim()).filter(Boolean)
+        if (adviceList.length > 0) {
+          promptStore.promptData.advice = adviceList
+        }
+      }
+      
       const advice = await promptGeneratorService.getOptimizationAdvice(
         initialPrompt,
         'system',
         modelId,
         'zh',
         [],
-        provider
+        provider,
+        onStep3Update
       )
       
       promptStore.promptData.advice = advice
@@ -1098,6 +1141,13 @@ const generatePrompt = async (provider: any, modelId: string) => {
       // 步骤4: 生成最终提示词
       promptStore.currentExecutionStep = 'final'
       promptStore.addOrUpdateProgressMessage('🔄 步骤 4/4: 正在应用优化建议，生成最终提示词...', 'progress')
+      
+      // 设置流式回调 - 步骤4
+      promptStore.promptData.generatedPrompt = ''
+      const onStep4Update = (chunk: string) => {
+        promptStore.promptData.generatedPrompt += chunk
+      }
+      
       const finalPrompt = await promptGeneratorService.applyOptimizationAdvice(
         initialPrompt,
         advice,
@@ -1105,7 +1155,8 @@ const generatePrompt = async (provider: any, modelId: string) => {
         modelId,
         'zh',
         [],
-        provider
+        provider,
+        onStep4Update
       )
       
       // 保存最终结果

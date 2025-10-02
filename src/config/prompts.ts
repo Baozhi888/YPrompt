@@ -3,7 +3,8 @@
 // 提示词规则已拆分到 prompts/ 目录下的独立文件中
 
 import { 
-  SYSTEM_PROMPT_RULES, 
+  SYSTEM_PROMPT_RULES,
+  SYSTEM_PROMPT_SLIM_RULES, 
   USER_GUIDED_PROMPT_RULES,
   REQUIREMENT_REPORT_RULES,
   FINAL_PROMPT_GENERATION_RULES,
@@ -47,6 +48,7 @@ export interface PromptConfig {
 export class PromptConfigManager {
   private static instance: PromptConfigManager
   private config: PromptConfig
+  private useSlimRules: boolean = false
   
   private constructor() {
     this.config = {
@@ -73,7 +75,15 @@ export class PromptConfigManager {
     return PromptConfigManager.instance
   }
 
+  public setUseSlimRules(useSlim: boolean): void {
+    this.useSlimRules = useSlim
+  }
+
   public getSystemPromptRules(): string {
+    // 根据设置返回完整版或精简版
+    if (this.useSlimRules) {
+      return SYSTEM_PROMPT_SLIM_RULES
+    }
     return this.config.systemPromptRules
   }
 

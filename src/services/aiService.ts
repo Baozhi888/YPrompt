@@ -110,6 +110,41 @@ export class AIService {
     this.isInThinkMode = false
   }
 
+  // 判断是否为有效的SSE数据行
+  private isValidSSELine(line: string): boolean {
+    if (!line || typeof line !== 'string') {
+      return false
+    }
+    
+    const trimmedLine = line.trim()
+    
+    // 必须以 "data: " 开头
+    if (!trimmedLine.startsWith('data: ')) {
+      return false
+    }
+    
+    // 获取数据部分
+    const data = trimmedLine.slice(6).trim()
+    
+    // 空数据或[DONE]都是有效的
+    if (!data || data === '[DONE]') {
+      return true
+    }
+    
+    // 专门过滤OPENROUTER的处理状态信息
+    if (data === ': OPENROUTER PROCESSING') {
+      return false
+    }
+    
+    // 过滤其他明显的状态信息（更保守的方法）
+    if (data.startsWith(': ') && data.toUpperCase().includes('PROCESSING')) {
+      return false
+    }
+    
+    // 对于其他情况，保持宽松，让JSON.parse来决定是否有效
+    return true
+  }
+
   // 清理完整文本中的<think></think>标签内容（用于最终结果处理）
   private cleanThinkTagsFromFullText(text: string): string {
     if (!text) return text
@@ -566,75 +601,6 @@ export class AIService {
     return false
   }
 
-  // 检查模型是否支持多模态内容
-  private checkMultimodalSupport(modelId: string, apiType: string, attachments: MessageAttachment[]): { 
-    supported: boolean; 
-    message?: string 
-  } {
-    if (!attachments || attachments.length === 0) {
-      return { supported: true }
-    }
-
-    const modelName = modelId.toLowerCase()
-    
-    // 检查不同API类型的多模态支持
-    switch (apiType) {
-      case 'openai':
-        // OpenAI模型支持检查
-        if (modelName.includes('gpt-4') && (modelName.includes('vision') || modelName.includes('4o'))) {
-          // 只支持图片
-          const hasNonImage = attachments.some(att => att.type !== 'image')
-          if (hasNonImage) {
-            return {
-              supported: false,
-              message: `当前模型 ${modelId} 仅支持图片附件，不支持文档、音频或视频。请移除非图片附件或切换到支持多模态的模型（如 Gemini）。`
-            }
-          }
-          return { supported: true }
-        } else {
-          return {
-            supported: false,
-            message: `当前模型 ${modelId} 不支持多模态输入。请移除附件或切换到支持视觉的模型（如 GPT-4 Vision、GPT-4o 或 Gemini）。`
-          }
-        }
-        
-      case 'anthropic':
-        // Claude模型支持检查
-        if (modelName.includes('claude') && modelName.includes('3')) {
-          // 只支持图片
-          const hasNonImage = attachments.some(att => att.type !== 'image')
-          if (hasNonImage) {
-            return {
-              supported: false,
-              message: `当前模型 ${modelId} 仅支持图片附件，不支持文档、音频或视频。请移除非图片附件或切换到支持多模态的模型（如 Gemini）。`
-            }
-          }
-          return { supported: true }
-        } else {
-          return {
-            supported: false,
-            message: `当前模型 ${modelId} 不支持多模态输入。请移除附件或切换到支持视觉的模型（如 Claude 3 或 Gemini）。`
-          }
-        }
-        
-      case 'google':
-        // Gemini模型支持检查
-        if (modelName.includes('gemini') && (modelName.includes('1.5') || modelName.includes('2.') || modelName.includes('flash') || modelName.includes('pro'))) {
-          return { supported: true } // Gemini支持最全面的多模态
-        } else {
-          return {
-            supported: false,
-            message: `当前模型 ${modelId} 不支持多模态输入。请移除附件或切换到支持多模态的 Gemini 模型（如 gemini-1.5-pro、gemini-1.5-flash）。`
-          }
-        }
-        
-      default:
-        return {
-          supported: false,
-          message: `当前API类型 ${apiType} 的多模态支持未知。请移除附件或切换到已知支持多模态的模型。`
-        }
-    }
-  }
   private hasMultimodalContent(message: ChatMessage): boolean {
     return !!(message.attachments && message.attachments.length > 0)
   }
@@ -646,16 +612,6 @@ export class AIService {
     const apiType = model?.apiType || provider.type
     
     try {
-      // 检查多模态支持
-      const allAttachments = messages.flatMap(msg => msg.attachments || [])
-      const supportCheck = this.checkMultimodalSupport(modelId, apiType, allAttachments)
-      
-      if (!supportCheck.supported) {
-        console.warn('[AIService] Multimodal not supported:', supportCheck.message)
-        // 返回友好的提示信息而不是抛出错误
-        return supportCheck.message || '当前模型不支持附件，请移除附件或切换模型。'
-      }
-      
       let result: string
       if (stream) {
         // 流式调用
@@ -1103,8 +1059,9 @@ export class AIService {
         const lines = chunk.split('\n')
         
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
+          // 过滤有效的SSE数据行
+          if (this.isValidSSELine(line)) {
+            const data = line.slice(6).trim()
             if (data === '[DONE]') continue
             
             try {
@@ -1143,7 +1100,8 @@ export class AIService {
                 }
               }
             } catch (e) {
-              // 忽略解析错误
+              // 忽略JSON解析错误，继续处理下一行
+              continue
             }
           }
         }
@@ -1231,8 +1189,9 @@ export class AIService {
         const lines = chunk.split('\n')
         
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
+          // 过滤有效的SSE数据行
+          if (this.isValidSSELine(line)) {
+            const data = line.slice(6).trim()
             if (data === '[DONE]') continue
             
             try {
@@ -1251,7 +1210,8 @@ export class AIService {
                 }
               }
             } catch (e) {
-              // 忽略解析错误
+              // 忽略JSON解析错误，继续处理下一行
+              continue
             }
           }
         }
@@ -1373,8 +1333,9 @@ export class AIService {
         const lines = chunk.split('\n')
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
+          // 过滤有效的SSE数据行
+          if (this.isValidSSELine(line)) {
+            const data = line.slice(6).trim()
             if (data === '[DONE]') continue
 
             try {
@@ -1396,7 +1357,7 @@ export class AIService {
                 }
               }
             } catch (parseError) {
-              // 忽略解析错误，继续处理下一行
+              // 忽略JSON解析错误，继续处理下一行
               continue
             }
           }

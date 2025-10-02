@@ -47,7 +47,8 @@ export class CapabilityDetector {
     modelId: string,
     onConnectionResult: (connected: boolean, responseTime: number, error?: string) => void,
     onThinkingResult: (capabilities: ModelCapabilities) => void,
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
+    abortController?: AbortController
   ): Promise<void> {
     const cacheKey = `${provider.id}:${modelId}`
     
@@ -71,9 +72,19 @@ export class CapabilityDetector {
     const startTime = Date.now()
     
     try {
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        return
+      }
+      
       // 第一阶段：快速连接测试
       const basicResult = await this.testBasicConnection(provider, modelId)
       const connectionTime = Date.now() - startTime
+      
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        return
+      }
       
       onConnectionResult(basicResult.connected, connectionTime, basicResult.error)
       
@@ -85,9 +96,19 @@ export class CapabilityDetector {
       }
       
       // 第二阶段：异步思考能力测试（不阻塞UI）
-      setTimeout(async () => {
+      const timeoutId = setTimeout(async () => {
         try {
-          const thinkingResult = await this.testThinkingCapability(provider, modelId, apiType, basicResult.preferStream)
+          // 检查是否已中断
+          if (abortController?.signal.aborted) {
+            return
+          }
+          
+          const thinkingResult = await this.testThinkingCapability(provider, modelId, apiType, basicResult.preferStream, abortController)
+          
+          // 再次检查是否已中断（因为 testThinkingCapability 可能是长时间运行的）
+          if (abortController?.signal.aborted) {
+            return
+          }
           
           const finalCapabilities: ModelCapabilities = {
             reasoning: thinkingResult.reasoning,
@@ -105,6 +126,16 @@ export class CapabilityDetector {
           this.testCache.set(cacheKey, finalCapabilities)
           onThinkingResult(finalCapabilities)
         } catch (thinkingError) {
+          // 如果是中止错误，直接返回
+          if (thinkingError instanceof Error && thinkingError.name === 'AbortError') {
+            return
+          }
+          
+          // 检查是否已中断
+          if (abortController?.signal.aborted) {
+            return
+          }
+          
           // 思考测试失败，但连接是成功的
           const partialCapabilities: ModelCapabilities = {
             reasoning: false,
@@ -122,6 +153,13 @@ export class CapabilityDetector {
           onThinkingResult(partialCapabilities)
         }
       }, 100) // 短暂延迟，让UI先更新连接状态
+      
+      // 监听中止信号，清理setTimeout
+      if (abortController) {
+        abortController.signal.addEventListener('abort', () => {
+          clearTimeout(timeoutId)
+        })
+      }
       
     } catch (error) {
       const failedResult = {
@@ -215,19 +253,25 @@ export class CapabilityDetector {
     provider: ProviderConfig, 
     modelId: string, 
     apiType: string,
-    preferStream?: boolean
+    preferStream?: boolean,
+    abortController?: AbortController
   ): Promise<{
     reasoning: boolean
     reasoningType: ReasoningType | null
     supportedParams: SupportedParams
   }> {
+    // 检查是否已中断
+    if (abortController?.signal.aborted) {
+      throw new Error('AbortError')
+    }
+    
     switch (apiType) {
       case 'openai':
-        return await this.testOpenAIThinking(provider, modelId, preferStream)
+        return await this.testOpenAIThinking(provider, modelId, preferStream, abortController)
       case 'google':
-        return await this.testGeminiThinking(provider, modelId, preferStream)
+        return await this.testGeminiThinking(provider, modelId, preferStream, abortController)
       case 'anthropic':
-        return await this.testClaudeThinking(provider, modelId, preferStream)
+        return await this.testClaudeThinking(provider, modelId, preferStream, abortController)
       default:
         return this.getDefaultCapabilities(apiType)
     }
@@ -236,7 +280,8 @@ export class CapabilityDetector {
   private async testOpenAIThinking(
     provider: ProviderConfig, 
     modelId: string,
-    preferStream?: boolean
+    preferStream?: boolean,
+    abortController?: AbortController
   ): Promise<{
     reasoning: boolean
     reasoningType: ReasoningType | null
@@ -249,6 +294,11 @@ export class CapabilityDetector {
     }]
     
     try {
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        throw new Error('AbortError')
+      }
+      
       // 检测是否为o1系列
       if (this.isO1Model(modelId)) {
         // o1系列模型的特殊检测逻辑
@@ -263,6 +313,11 @@ export class CapabilityDetector {
             systemMessage: true
           }
         }
+      }
+      
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        throw new Error('AbortError')
       }
       
       // 常规OpenAI模型的思考能力测试
@@ -280,6 +335,9 @@ export class CapabilityDetector {
         }
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'AbortError') {
+        throw error
+      }
       return this.getDefaultCapabilities('openai')
     }
   }
@@ -287,7 +345,8 @@ export class CapabilityDetector {
   private async testGeminiThinking(
     provider: ProviderConfig, 
     modelId: string,
-    preferStream?: boolean
+    preferStream?: boolean,
+    abortController?: AbortController
   ): Promise<{
     reasoning: boolean
     reasoningType: ReasoningType | null
@@ -300,8 +359,18 @@ export class CapabilityDetector {
     }]
     
     try {
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        throw new Error('AbortError')
+      }
+      
       // 直接调用API，检查原始响应结构
       const rawResponse = await this.callGeminiAPIRaw(provider, modelId, testMessage, preferStream)
+      
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        throw new Error('AbortError')
+      }
       
       // 检查响应中是否包含thought字段
       const hasThoughtField = this.detectGeminiThoughtField(rawResponse)
@@ -323,6 +392,9 @@ export class CapabilityDetector {
         }
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'AbortError') {
+        throw error
+      }
       return this.getDefaultCapabilities('google')
     }
   }
@@ -330,7 +402,8 @@ export class CapabilityDetector {
   private async testClaudeThinking(
     provider: ProviderConfig, 
     modelId: string,
-    preferStream?: boolean
+    preferStream?: boolean,
+    abortController?: AbortController
   ): Promise<{
     reasoning: boolean
     reasoningType: ReasoningType | null
@@ -343,7 +416,17 @@ export class CapabilityDetector {
     }]
     
     try {
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        throw new Error('AbortError')
+      }
+      
       const response = await this.aiService.callAI(testMessage, provider, modelId, preferStream || false)
+      
+      // 检查是否已中断
+      if (abortController?.signal.aborted) {
+        throw new Error('AbortError')
+      }
       
       // Claude的思考能力判断：检查响应中是否包含<thinking>标签
       const hasThinkingTags = typeof response === 'string' && 
@@ -368,6 +451,9 @@ export class CapabilityDetector {
         }
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'AbortError') {
+        throw error
+      }
       return this.getDefaultCapabilities('anthropic')
     }
   }
