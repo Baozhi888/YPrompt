@@ -193,7 +193,7 @@ export const useSettingsStore = defineStore('settings', () => {
       }))
     }
     
-    providers.value.push(newProvider)
+    providers.value.unshift(newProvider)  // 新提供商排在前面
     return newProvider
   }
 
@@ -201,7 +201,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const addModel = (providerId: string, model: Omit<ModelConfig, 'provider'>) => {
     const provider = providers.value.find(p => p.id === providerId)
     if (provider) {
-      provider.models.push({
+      provider.models.unshift({  // 新模型排在前面
         ...model,
         provider: providerId
       })

@@ -669,6 +669,9 @@ export class AIService {
 
   // 流式AI API调用
   async callAIStream(messages: ChatMessage[], provider: ProviderConfig, modelId: string, apiType: string): Promise<string> {
+    // 保存当前回调，用于在调用结束后确保清理
+    const hasCallback = !!this.onStreamUpdate
+    
     try {
       switch (apiType) {
         case 'openai':
@@ -708,6 +711,12 @@ export class AIService {
       // 其他错误直接抛出
       const friendlyErrorMessage = this.parseAPIError(error, apiType)
       throw new Error(friendlyErrorMessage)
+    } finally {
+      // 重要：如果这次调用有设置回调，在结束时确保清理
+      // 这样可以防止后台测试模型时意外触发之前设置的回调
+      if (hasCallback) {
+        this.clearStreamUpdateCallback()
+      }
     }
   }
 
