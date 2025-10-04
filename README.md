@@ -50,10 +50,10 @@
 
 ```
 src/
-├── components/          # Vue组件层（已完成模块化重构）
-│   ├── ChatInterface.vue         # 对话界面主容器 (196行)
-│   ├── PreviewPanel.vue          # 预览面板主容器 (257行)
-│   ├── SettingsModal.vue         # 设置弹窗主容器 (139行)
+├── components/          # Vue组件层
+│   ├── ChatInterface.vue         # 对话界面主容器
+│   ├── PreviewPanel.vue          # 预览面板主容器
+│   ├── SettingsModal.vue         # 设置弹窗主容器
 │   ├── PromptGenerator.vue       # 提示词生成器
 │   ├── NotificationContainer.vue # 通知容器
 │   ├── chat/                     # 对话模块
@@ -114,8 +114,8 @@ src/
 │   ├── promptStore.ts           # 提示词生成状态
 │   ├── settingsStore.ts         # AI配置和应用设置
 │   └── notificationStore.ts     # 通知状态
-├── services/            # 业务服务层（已完成模块化重构）
-│   ├── aiService.ts             # AI服务统一入口 (185行)
+├── services/            # 业务服务层
+│   ├── aiService.ts             # AI服务统一入口
 │   ├── aiGuideService.ts        # AI引导式需求收集
 │   ├── promptGeneratorService.ts # GPrompt四步生成
 │   ├── capabilityDetector.ts    # 模型能力检测
