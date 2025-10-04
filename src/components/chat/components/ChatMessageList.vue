@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Ref } from 'vue'
+import { computed, type Ref, type ComponentPublicInstance } from 'vue'
 import { usePromptStore } from '@/stores/promptStore'
 import ChatMessage from './ChatMessage.vue'
 
@@ -70,9 +70,9 @@ const visibleMessages = computed(() => {
 const isTyping = computed(() => promptStore.isTyping)
 const isGenerating = computed(() => promptStore.isGenerating)
 
-const setChatContainerRef = (el: HTMLElement | null) => {
+const setChatContainerRef = (el: Element | ComponentPublicInstance | null) => {
   if (props.chatContainer && el) {
-    props.chatContainer.value = el
+    props.chatContainer.value = el as HTMLElement
   }
 }
 </script>

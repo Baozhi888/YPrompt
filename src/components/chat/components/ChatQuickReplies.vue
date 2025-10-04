@@ -35,7 +35,7 @@ defineEmits<{
 
 const containerRef = ref<HTMLElement>()
 
-const quickRepliesStyle = computed(() => {
+const quickRepliesStyle = computed<Record<string, string>>(() => {
   if (!props.inputContainerRef) {
     return {
       position: 'absolute',

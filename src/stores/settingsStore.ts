@@ -331,7 +331,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const deleteProvider = (providerId: string) => {
     const index = providers.value.findIndex(p => p.id === providerId)
     if (index > -1) {
-      const provider = providers.value[index]
       providers.value.splice(index, 1)
       
       // 如果删除的是内置提供商，记录到删除列表中
@@ -608,7 +607,6 @@ export const useSettingsStore = defineStore('settings', () => {
       return
     }
 
-    const restoredCount = deletedBuiltinProviders.value.length
     deletedBuiltinProviders.value = []
     saveSettings()
     

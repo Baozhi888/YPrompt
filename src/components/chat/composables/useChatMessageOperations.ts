@@ -2,7 +2,7 @@ import { ref, computed, nextTick } from 'vue'
 import { usePromptStore } from '@/stores/promptStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 
-export function useChatMessageOperations(chatContainer?: any) {
+export function useChatMessageOperations(_chatContainer?: any) {
   const promptStore = usePromptStore()
   const notificationStore = useNotificationStore()
   
