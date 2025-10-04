@@ -121,12 +121,6 @@ export const usePromptStore = defineStore('prompt', () => {
       attachments: attachments && attachments.length > 0 ? attachments : []
     }
     
-    console.log('[PromptStore] Adding message:', {
-      type: message.type,
-      hasContent: !!message.content,
-      attachmentCount: message.attachments?.length || 0,
-      attachments: message.attachments?.map(att => ({ name: att.name, type: att.type, size: att.size, hasData: !!att.data }))
-    })
     
     chatMessages.value.push(message)
     

@@ -54,11 +54,6 @@ export class AIGuideService {
     userInput: string,
     conversationHistory: Array<{ type: string; content: string; attachments?: MessageAttachment[] }>
   ): ChatMessage[] {
-    console.log('[AIGuideService] Building conversation messages with history:', {
-      historyLength: conversationHistory.length,
-      hasAttachments: conversationHistory.some(msg => msg.attachments && msg.attachments.length > 0),
-      attachmentCounts: conversationHistory.map(msg => ({ type: msg.type, attachments: msg.attachments?.length || 0 }))
-    })
     
     // 系统消息：使用内置的用户引导规则
     const systemMessage: ChatMessage = {
@@ -74,12 +69,6 @@ export class AIGuideService {
         attachments: msg.attachments || []
       }
       
-      console.log('[AIGuideService] Processing message:', {
-        role: message.role,
-        hasAttachments: !!(message.attachments && message.attachments.length > 0),
-        attachmentCount: message.attachments?.length || 0,
-        attachments: message.attachments?.map(att => ({ name: att.name, type: att.type, size: att.size }))
-      })
       
       return message
     })
@@ -95,10 +84,6 @@ export class AIGuideService {
       })
     }
 
-    console.log('[AIGuideService] Final messages array:', {
-      totalMessages: messages.length,
-      messagesWithAttachments: messages.filter(msg => msg.attachments && msg.attachments.length > 0).length
-    })
 
     return messages
   }

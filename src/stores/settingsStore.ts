@@ -82,7 +82,6 @@ export const useSettingsStore = defineStore('settings', () => {
     // 加载内置提供商配置
     const builtinProviders = getBuiltinProviders()
     if (builtinProviders.length > 0) {
-      console.log('🚀 加载内置提供商:', builtinProviders.length, '个')
       const builtinProviderConfigs = builtinProviders.map(convertBuiltinToProviderConfig)
       providers.value = [...builtinProviderConfigs]
       
@@ -94,7 +93,6 @@ export const useSettingsStore = defineStore('settings', () => {
         if (availableModels.length > 0) {
           selectedModel.value = availableModels[0].id
         }
-        console.log('🎯 初始化时自动选择提供商:', availableProviders[0].name, '模型:', availableModels[0]?.name)
       }
     } else {
       // 如果没有内置提供商，保持空数组
@@ -245,14 +243,12 @@ export const useSettingsStore = defineStore('settings', () => {
     let allProviders: ProviderConfig[] = []
     
     if (builtinProviders.length > 0) {
-      console.log('🚀 加载内置提供商:', builtinProviders.length, '个')
       const builtinProviderConfigs = builtinProviders
         .map(convertBuiltinToProviderConfig)
         .filter(provider => !deletedBuiltinProviders.value.includes(provider.id))
       allProviders = [...builtinProviderConfigs]
       
       if (deletedBuiltinProviders.value.length > 0) {
-        console.log('🗑️ 跳过已删除的内置提供商:', deletedBuiltinProviders.value.length, '个')
       }
     }
 
@@ -268,7 +264,6 @@ export const useSettingsStore = defineStore('settings', () => {
           allProviders = [...allProviders, ...nonBuiltinProviders]
         }
       } catch (error) {
-        console.warn('解析用户提供商配置失败:', error)
       }
     }
 
@@ -319,7 +314,6 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!validProviderSelected && availableProviders.length > 0) {
       // 自动选择第一个可用的提供商
       selectedProvider.value = availableProviders[0].id
-      console.log('🎯 自动选择提供商:', availableProviders[0].name)
     }
 
     if (selectedProvider.value && !validModelSelected) {
@@ -327,9 +321,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const availableModels = getAvailableModels(selectedProvider.value)
       if (availableModels.length > 0) {
         selectedModel.value = availableModels[0].id
-        console.log('🎯 自动选择模型:', availableModels[0].name)
       } else {
-        console.warn('⚠️ 提供商没有可用模型，请检查配置')
         selectedModel.value = '' // 清空无效的模型选择
       }
     }
@@ -347,7 +339,6 @@ export const useSettingsStore = defineStore('settings', () => {
         if (!deletedBuiltinProviders.value.includes(providerId)) {
           deletedBuiltinProviders.value.push(providerId)
         }
-        console.log('🗑️ 已永久删除内置提供商:', provider.name)
       }
       
       // 如果删除的是当前选中的提供商，重置选择
@@ -363,7 +354,6 @@ export const useSettingsStore = defineStore('settings', () => {
           if (availableModels.length > 0) {
             selectedModel.value = availableModels[0].id
           }
-          console.log('🎯 自动选择下一个提供商:', availableProviders[0].name)
         }
       }
       
@@ -615,7 +605,6 @@ export const useSettingsStore = defineStore('settings', () => {
   // 恢复被删除的内置提供商
   const restoreDeletedBuiltinProviders = () => {
     if (deletedBuiltinProviders.value.length === 0) {
-      console.log('没有被删除的内置提供商需要恢复')
       return
     }
 
@@ -626,7 +615,6 @@ export const useSettingsStore = defineStore('settings', () => {
     // 重新加载设置以恢复内置提供商
     loadSettings()
     
-    console.log(`✅ 已恢复 ${restoredCount} 个被删除的内置提供商`)
   }
 
 

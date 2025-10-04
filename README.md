@@ -50,23 +50,110 @@
 
 ```
 src/
-├── components/          # Vue组件
-│   ├── ChatInterface.vue       # 对话界面
-│   ├── PreviewPanel.vue        # 预览面板
-│   ├── PromptGenerator.vue     # 提示词生成器
-│   ├── SettingsModal.vue       # 设置弹窗
-│   └── NotificationContainer.vue  # 通知容器
+├── components/          # Vue组件层（已完成模块化重构）
+│   ├── ChatInterface.vue         # 对话界面主容器 (196行)
+│   ├── PreviewPanel.vue          # 预览面板主容器 (257行)
+│   ├── SettingsModal.vue         # 设置弹窗主容器 (139行)
+│   ├── PromptGenerator.vue       # 提示词生成器
+│   ├── NotificationContainer.vue # 通知容器
+│   ├── chat/                     # 对话模块
+│   │   ├── composables/          # 业务逻辑组合式函数
+│   │   │   ├── useChatMessages.ts
+│   │   │   ├── useChatInput.ts
+│   │   │   ├── useChatAttachments.ts
+│   │   │   ├── useChatModel.ts
+│   │   │   ├── useChatQuickReplies.ts
+│   │   │   ├── useChatMessageOperations.ts
+│   │   │   └── useChatLogic.ts
+│   │   └── components/           # UI子组件
+│   │       ├── ChatHeader.vue
+│   │       ├── ChatModelSelector.vue
+│   │       ├── ChatMessageList.vue
+│   │       ├── ChatMessage.vue
+│   │       ├── ChatQuickReplies.vue
+│   │       └── ChatInputArea.vue
+│   ├── preview/                  # 预览模块
+│   │   ├── composables/          # 业务逻辑组合式函数
+│   │   │   ├── usePreviewTabs.ts
+│   │   │   ├── usePreviewExecution.ts
+│   │   │   ├── usePreviewConversion.ts
+│   │   │   ├── usePreviewScrollSync.ts
+│   │   │   ├── usePreviewClipboard.ts
+│   │   │   ├── usePreviewListOperations.ts
+│   │   │   └── usePreviewHelpers.ts
+│   │   └── components/           # UI子组件
+│   │       ├── common/
+│   │       │   ├── PreviewHeader.vue
+│   │       │   ├── TabContainer.vue
+│   │       │   ├── TabButton.vue
+│   │       │   ├── EmptyState.vue
+│   │       │   └── LoadingState.vue
+│   │       └── tabs/
+│   │           ├── ReportTab.vue
+│   │           ├── ThinkingTab.vue
+│   │           ├── InitialTab.vue
+│   │           ├── AdviceTab.vue
+│   │           └── FinalTab.vue
+│   └── settings/                 # 设置模块
+│       ├── composables/          # 业务逻辑组合式函数
+│       │   ├── useProviderManagement.ts
+│       │   ├── useModelManagement.ts
+│       │   ├── useModelTesting.ts
+│       │   └── usePromptRules.ts
+│       └── components/           # UI子组件
+│           ├── SettingsButton.vue
+│           ├── SettingsHeader.vue
+│           ├── tabs/
+│           │   ├── ProvidersTab.vue
+│           │   └── PromptsTab.vue
+│           └── dialogs/
+│               ├── ProviderTypeDialog.vue
+│               ├── ProviderDialog.vue
+│               └── ModelDialog.vue
 ├── stores/              # Pinia状态管理
-│   ├── promptStore.ts           # 提示词状态
-│   ├── settingsStore.ts        # 设置状态
-│   └── notificationStore.ts    # 通知状态
-├── services/            # 业务服务层
-│   ├── aiService.ts             # AI服务基础类
-│   ├── aiGuideService.ts        # AI引导服务
-│   └── promptGeneratorService.ts # 提示词生成服务
+│   ├── promptStore.ts           # 提示词生成状态
+│   ├── settingsStore.ts         # AI配置和应用设置
+│   └── notificationStore.ts     # 通知状态
+├── services/            # 业务服务层（已完成模块化重构）
+│   ├── aiService.ts             # AI服务统一入口 (185行)
+│   ├── aiGuideService.ts        # AI引导式需求收集
+│   ├── promptGeneratorService.ts # GPrompt四步生成
+│   ├── capabilityDetector.ts    # 模型能力检测
+│   └── ai/                      # AI服务模块化实现
+│       ├── providers/           # 提供商实现
+│       │   ├── BaseProvider.ts
+│       │   ├── OpenAIProvider.ts
+│       │   ├── AnthropicProvider.ts
+│       │   └── GoogleProvider.ts
+│       ├── streaming/           # 流式处理
+│       │   ├── StreamProcessor.ts
+│       │   ├── SSEParser.ts
+│       │   └── StreamFilter.ts
+│       ├── multimodal/          # 多模态转换
+│       │   ├── AttachmentConverter.ts
+│       │   ├── OpenAIAttachmentHandler.ts
+│       │   ├── AnthropicAttachmentHandler.ts
+│       │   └── GoogleAttachmentHandler.ts
+│       ├── errors/              # 错误处理
+│       │   ├── AIErrorHandler.ts
+│       │   └── ErrorParser.ts
+│       ├── utils/               # 工具函数
+│       │   ├── ResponseCleaner.ts
+│       │   ├── ModelFetcher.ts
+│       │   └── apiUrlBuilder.ts
+│       ├── types.ts             # 类型定义
+│       └── index.ts             # 模块导出
 ├── config/              # 配置文件
-│   ├── promptGenerator.ts       # 生成器配置
+│   ├── prompts.ts              # 提示词配置管理
 │   └── prompts/                # 内置提示词规则
+│       ├── systemPromptRules.ts
+│       ├── thinkingPointsExtraction.ts
+│       ├── optimizationAdvice.ts
+│       └── userGuidedRules.ts
+├── utils/               # 通用工具函数
+│   ├── aiResponseUtils.ts
+│   └── fileUtils.ts
 ├── views/               # 页面视图
+│   └── HomeView.vue
 └── main.ts              # 应用入口
 ```

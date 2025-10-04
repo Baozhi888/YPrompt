@@ -79,8 +79,6 @@ ${description}
       content: masterPrompt
     }
     
-    console.log('🔍 [getSystemPromptThinkingPoints] System message:', systemMessage)
-    console.log('🔍 [getSystemPromptThinkingPoints] Messages array:', [systemMessage, userMessage])
 
     if (!provider) {
       throw new Error('请先配置AI提供商')
@@ -95,7 +93,6 @@ ${description}
       })
     }
     
-    console.log('🔍 [getSystemPromptThinkingPoints] Calling aiService.callAI with messages:', [systemMessage, userMessage])
     const response = await this.aiService.callAI([systemMessage, userMessage], provider, model, streamMode)
     
     // 清理流式回调
@@ -317,8 +314,6 @@ ${adviceSection}
       content: masterPrompt
     }
     
-    console.log('🔍 [applyOptimizationAdvice] System message:', systemMessage)
-    console.log('🔍 [applyOptimizationAdvice] Messages array:', [systemMessage, userMessage])
 
     if (!provider) {
       throw new Error('请先配置AI提供商')
@@ -333,7 +328,6 @@ ${adviceSection}
       })
     }
     
-    console.log('🔍 [applyOptimizationAdvice] Calling aiService.callAI with messages:', [systemMessage, userMessage])
     const response = await this.aiService.callAI([systemMessage, userMessage], provider, model, streamMode)
     
     // 清理流式回调

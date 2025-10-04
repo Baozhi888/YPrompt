@@ -26,7 +26,6 @@ export function getBuiltinProviders(): BuiltinProviderConfig[] {
     }
     return []
   } catch (error) {
-    console.warn('Failed to parse builtin providers config:', error)
     return []
   }
 }

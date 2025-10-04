@@ -228,7 +228,6 @@ export class CapabilityDetector {
         return { connected: true, preferStream: true }
       }
     } catch (streamError) {
-      console.log('流式测试失败，尝试非流式测试:', streamError)
     }
     
     try {

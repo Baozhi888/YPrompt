@@ -247,13 +247,6 @@ export const fileToBase64 = (file: File): Promise<string> => {
       // 移除data:image/jpeg;base64,前缀，只保留Base64数据
       const base64Data = result.split(',')[1]
       
-      console.log('[FileUtils] Base64 conversion:', {
-        fileName: file.name,
-        originalSize: file.size,
-        base64Length: base64Data?.length || 0,
-        base64Preview: base64Data?.substring(0, 50) + '...',
-        hasValidBase64: !!base64Data && base64Data.length > 0
-      })
       
       resolve(base64Data)
     }
@@ -264,21 +257,11 @@ export const fileToBase64 = (file: File): Promise<string> => {
 
 // 创建MessageAttachment对象
 export const createMessageAttachment = async (file: File): Promise<MessageAttachment> => {
-  console.log('[FileUtils] Processing file:', {
-    name: file.name,
-    originalMimeType: file.type,
-    size: file.size
-  })
   
   // 优先通过文件扩展名确定MIME类型，这样更准确
   const inferredMimeType = getMimeTypeByExtension(file.name)
   const finalMimeType = inferredMimeType !== 'application/octet-stream' ? inferredMimeType : file.type
   
-  console.log('[FileUtils] MIME type resolution:', {
-    originalMimeType: file.type,
-    inferredFromExtension: inferredMimeType,
-    finalMimeType: finalMimeType
-  })
   
   // 验证文件（使用推断的MIME类型）
   const mockFileForValidation = {
@@ -302,13 +285,6 @@ export const createMessageAttachment = async (file: File): Promise<MessageAttach
   // 获取文件类型分类（使用最终确定的MIME类型）
   const type = getFileTypeCategory(finalMimeType, file.name)!
   
-  console.log('[FileUtils] Final attachment:', {
-    name: file.name,
-    type: type,
-    mimeType: finalMimeType,
-    size: file.size,
-    hasData: !!data
-  })
   
   return {
     id: `attachment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

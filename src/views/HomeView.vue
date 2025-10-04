@@ -110,7 +110,7 @@
 <script setup lang="ts">
 import ChatInterface from '@/components/ChatInterface.vue'
 import PreviewPanel from '@/components/PreviewPanel.vue'
-import SettingsModal from '@/components/SettingsModal.vue'
+import SettingsModal from '@/components/settings/SettingsModal.vue'
 import NotificationContainer from '@/components/NotificationContainer.vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePromptStore } from '@/stores/promptStore'

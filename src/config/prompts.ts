@@ -283,7 +283,6 @@ export class PromptConfigManager {
     try {
       localStorage.setItem('yprompt_config', JSON.stringify(this.config))
     } catch (error) {
-      console.error('Failed to save prompt config to localStorage:', error)
     }
   }
 
